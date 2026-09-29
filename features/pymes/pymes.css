@@ -1,0 +1,100 @@
+.pyme-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) 140px 140px auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.pyme-metrics {
+  margin-top: 18px;
+}
+
+.pulse-card,
+.range-note {
+  margin-top: 16px;
+}
+
+.range-note {
+  margin-bottom: 12px;
+}
+
+.product-list {
+  display: grid;
+  gap: 12px;
+}
+
+.product-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) 170px minmax(120px, 0.8fr) 40px;
+  gap: 10px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(8, 9, 11, 0.35);
+}
+
+.product-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.product-done strong {
+  display: block;
+  font-family: var(--serif);
+  font-size: 1.15rem;
+  font-weight: 500;
+}
+
+.sale-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) 120px minmax(110px, 0.7fr);
+  gap: 10px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(8, 9, 11, 0.28);
+}
+
+.sale-row .sale-name {
+  font-family: var(--serif);
+  font-size: 1.05rem;
+}
+
+.sale-row .sale-price {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sale-row .line-total {
+  display: block;
+  font-family: var(--serif);
+  font-size: 1.2rem;
+  font-weight: 500;
+  text-align: right;
+}
+
+.sale-row input[type="number"] {
+  font-size: 18px;
+  min-height: 48px;
+  padding: 12px 14px;
+}
+
+@media (max-width: 960px) {
+  .pyme-tools,
+  .product-card,
+  .sale-row {
+    grid-template-columns: 1fr;
+  }
+
+  .sale-row .line-total {
+    text-align: left;
+  }
+
+  .pyme-tools .btn {
+    width: 100%;
+  }
+}

@@ -5,6 +5,10 @@
     "Ene", "Feb", "Mar", "Abr", "May", "Jun",
     "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
   ];
+  const MONTH_FULL = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  ];
 
   function uid() {
     return `n-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -186,6 +190,52 @@
     return td;
   }
 
+  function monthPlain(monthNum) {
+    const month = Math.max(1, Number(monthNum) || 1);
+    const name = MONTH_FULL[(month - 1) % 12];
+    const year = Math.ceil(month / 12);
+    return year > 1
+      ? `${name} del año ${year} (mes ${month} del crédito)`
+      : `${name} (mes ${month} del crédito)`;
+  }
+
+  function extraHintText(item) {
+    const amount = money(Number(item.amount) || 0);
+    const when = monthPlain(item.month);
+    return item.recur === "monthly"
+      ? `${amount} extra cada mes, desde ${when}.`
+      : `${amount} una sola vez, en ${when}.`;
+  }
+
+  function fillMonthSelect(select, selected) {
+    const chosen = Math.max(1, Number(selected) || 1);
+    const maxMonth = Math.max(totalMonths(), chosen, 12);
+    select.replaceChildren();
+    let year = 0;
+    let group = null;
+    for (let month = 1; month <= maxMonth; month += 1) {
+      const yearIndex = Math.ceil(month / 12);
+      if (yearIndex !== year) {
+        year = yearIndex;
+        group = document.createElement("optgroup");
+        group.label = yearIndex === 1 ? "Primer año del crédito" : `Año ${yearIndex} del crédito`;
+        select.appendChild(group);
+      }
+      const option = document.createElement("option");
+      option.value = String(month);
+      option.textContent = `${MONTH_FULL[(month - 1) % 12]} · mes ${month}`;
+      if (month === chosen) option.selected = true;
+      group.appendChild(option);
+    }
+  }
+
+  function refreshExtraMonths() {
+    document.querySelectorAll(".extra-month").forEach((select) => {
+      const item = state.extras.find((row) => row.id === select.dataset.id);
+      if (item) fillMonthSelect(select, item.month);
+    });
+  }
+
   function renderExtras() {
     const box = document.getElementById("extra-rows");
     box.replaceChildren();
@@ -197,52 +247,104 @@
       return;
     }
     state.extras.forEach((item, index) => {
-      const row = document.createElement("div");
-      row.className = "extra-row";
+      const card = document.createElement("div");
+      card.className = "extra-card";
+
+      const amountField = document.createElement("div");
+      amountField.className = "field";
+      const amountLabel = document.createElement("label");
+      amountLabel.setAttribute("for", `extra-amount-${item.id}`);
+      amountLabel.textContent = "Cuánto abonas";
+      const suffix = document.createElement("div");
+      suffix.className = "input-suffix";
       const amount = document.createElement("input");
+      amount.id = `extra-amount-${item.id}`;
+      amount.className = "extra-amount";
       amount.type = "number";
       amount.min = "0";
       amount.step = "any";
-      amount.placeholder = "Monto";
+      amount.placeholder = "0";
+      amount.inputMode = "decimal";
       amount.value = item.amount || "";
+      const currency = document.createElement("em");
+      currency.textContent = "COP";
       amount.addEventListener("input", () => {
         item.amount = Number.parseFloat(amount.value) || 0;
+        hint.textContent = extraHintText(item);
         render();
       });
-      const month = document.createElement("input");
-      month.type = "number";
-      month.min = "1";
-      month.step = "1";
-      month.title = "Mes";
-      month.value = item.month || 1;
-      month.addEventListener("input", () => {
-        item.month = Math.max(1, Math.round(Number.parseFloat(month.value) || 1));
+      suffix.append(amount, currency);
+      amountField.append(amountLabel, suffix);
+
+      const whenField = document.createElement("div");
+      whenField.className = "field";
+      const whenLabel = document.createElement("label");
+      whenLabel.setAttribute("for", `extra-month-${item.id}`);
+      whenLabel.textContent = "En qué mes del crédito";
+      const month = document.createElement("select");
+      month.id = `extra-month-${item.id}`;
+      month.className = "extra-month";
+      month.dataset.id = item.id;
+      fillMonthSelect(month, item.month || 1);
+      month.addEventListener("change", () => {
+        item.month = Number.parseInt(month.value, 10) || 1;
+        hint.textContent = extraHintText(item);
         render();
       });
-      const select = document.createElement("select");
-      [["once", "Solo ese mes"], ["monthly", "Cada mes desde ahí"]].forEach(([value, label]) => {
-        const option = document.createElement("option");
-        option.value = value;
-        option.textContent = label;
-        if (item.recur === value) option.selected = true;
-        select.appendChild(option);
-      });
-      select.addEventListener("change", () => {
-        item.recur = select.value;
+      const whenHint = document.createElement("span");
+      whenHint.className = "hint";
+      whenHint.textContent = "Cuenta desde el primer mes del crédito, no el calendario.";
+      whenField.append(whenLabel, month, whenHint);
+
+      const howField = document.createElement("div");
+      howField.className = "field";
+      const howLabel = document.createElement("label");
+      howLabel.textContent = "Cada cuánto";
+      const tabs = document.createElement("div");
+      tabs.className = "tabs";
+      tabs.setAttribute("role", "tablist");
+      const onceBtn = document.createElement("button");
+      onceBtn.type = "button";
+      onceBtn.textContent = "Solo una vez";
+      const monthlyBtn = document.createElement("button");
+      monthlyBtn.type = "button";
+      monthlyBtn.textContent = "Desde ese mes";
+      function syncRecurTabs() {
+        onceBtn.classList.toggle("is-active", item.recur !== "monthly");
+        monthlyBtn.classList.toggle("is-active", item.recur === "monthly");
+      }
+      onceBtn.addEventListener("click", () => {
+        item.recur = "once";
+        syncRecurTabs();
+        hint.textContent = extraHintText(item);
         render();
       });
+      monthlyBtn.addEventListener("click", () => {
+        item.recur = "monthly";
+        syncRecurTabs();
+        hint.textContent = extraHintText(item);
+        render();
+      });
+      syncRecurTabs();
+      tabs.append(onceBtn, monthlyBtn);
+      howField.append(howLabel, tabs);
+
+      const hint = document.createElement("p");
+      hint.className = "extra-hint";
+      hint.textContent = extraHintText(item);
+
       const remove = document.createElement("button");
       remove.type = "button";
-      remove.className = "btn";
-      remove.setAttribute("aria-label", "Eliminar");
-      remove.textContent = "×";
+      remove.className = "btn extra-remove";
+      remove.textContent = "Quitar este abono";
       remove.addEventListener("click", () => {
         state.extras.splice(index, 1);
         renderExtras();
         render();
       });
-      row.append(amount, month, select, remove);
-      box.appendChild(row);
+
+      card.append(amountField, whenField, howField, hint, remove);
+      box.appendChild(card);
     });
   }
 
@@ -428,8 +530,9 @@
     render();
   }
 
-  document.getElementById("loan-form").addEventListener("input", () => {
+  document.getElementById("loan-form").addEventListener("input", (event) => {
     read();
+    if (event.target.id === "term") refreshExtraMonths();
     render();
   });
   document.getElementById("unit-months").addEventListener("click", () => {
@@ -437,6 +540,7 @@
       state.termValue = totalMonths();
       state.termUnit = "months";
     }
+    refreshExtraMonths();
     render();
   });
   document.getElementById("unit-years").addEventListener("click", () => {
@@ -444,6 +548,7 @@
       state.termValue = Math.max(1, Math.round(totalMonths() / 12));
       state.termUnit = "years";
     }
+    refreshExtraMonths();
     render();
   });
   document.getElementById("mode-plazo").addEventListener("click", () => {
@@ -457,6 +562,7 @@
   document.getElementById("add-extra").addEventListener("click", () => {
     state.extras.push({ id: uid(), amount: 0, month: 1, recur: "once" });
     renderExtras();
+    render();
   });
   document.querySelectorAll(".credit-tabs [data-tab]").forEach((button) => {
     button.addEventListener("click", () => setTab(button.dataset.tab));

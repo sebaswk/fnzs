@@ -26,26 +26,45 @@ input[readonly] {
 
 .extra-rows {
   display: grid;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 14px;
+  margin-bottom: 14px;
 }
 
-.extra-row {
+.extra-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 88px 140px 40px;
-  gap: 8px;
-  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(8, 9, 11, 0.35);
 }
 
-.extra-row input,
-.extra-row select {
+.extra-card .extra-amount {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  min-height: 54px;
+  padding: 14px 52px 14px 16px;
+}
+
+.extra-card .tabs {
   width: 100%;
-  border: 1px solid var(--line);
-  background: var(--bg);
-  color: var(--ink);
-  border-radius: 12px;
-  padding: 11px 12px;
-  font-size: 14px;
+}
+
+.extra-card .tabs button {
+  flex: 1;
+  padding: 10px 8px;
+}
+
+.extra-hint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.extra-remove {
+  width: 100%;
 }
 
 .credit-tabs {
@@ -71,10 +90,4 @@ input[readonly] {
 
 .compare-note {
   margin-bottom: 12px;
-}
-
-@media (max-width: 960px) {
-  .extra-row {
-    grid-template-columns: 1fr;
-  }
 }

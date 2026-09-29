@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#08090b">
-  <meta name="description" content="Pymes: ingresos, costos, ganancia bruta y neta, punto de equilibrio e incertidumbre.">
+  <meta name="description" content="Pymes: productos, ventas mensuales, costos, ganancia y factura del año.">
   <title>Pymes — Norte</title>
   <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../assets/css/base.css">
-  <link rel="stylesheet" href="../inversiones/inversiones.css">
   <link rel="stylesheet" href="../finanzas-personales/finanzas.css">
+  <link rel="stylesheet" href="pymes.css">
 </head>
 <body>
   <a class="skip" href="#contenido">Saltar al contenido</a>
@@ -40,103 +40,191 @@
   </header>
 
   <main id="contenido" class="page">
-    <div class="page-head">
-      <div>
+    <section id="view-overview">
+      <div class="page-head">
         <p class="kicker"><span></span> 04 · Negocio</p>
         <h1>Pymes</h1>
-        <p class="lede">Un estado de resultados sencillo: ventas, costo de lo vendido, gastos, impuestos y un rango de incertidumbre si el mes no sale como esperabas.</p>
+        <p class="lede">Armas el catálogo de productos, anotas cuántos se venden cada mes y ves el año en recopilado, meses y factura.</p>
       </div>
-    </div>
 
-    <div class="workspace">
-      <div class="stack">
-        <section class="card card-pad">
-          <div class="list-head">
-            <h2>El negocio</h2>
-            <button class="btn btn-ghost" type="button" id="btn-ejemplo">Cargar ejemplo</button>
+      <div class="year-bar card card-pad">
+        <div class="year-nav">
+          <button class="btn" type="button" id="year-prev" aria-label="Año anterior">‹</button>
+          <strong id="year-label">2026</strong>
+          <button class="btn" type="button" id="year-next" aria-label="Año siguiente">›</button>
+        </div>
+        <div class="year-chips" id="year-chips"></div>
+        <div class="pyme-tools">
+          <div class="field">
+            <label for="biz-name">Nombre del negocio</label>
+            <input id="biz-name" type="text" placeholder="Mi tienda">
           </div>
-          <div class="profile-grid">
-            <div class="field">
-              <label for="biz-name">Nombre</label>
-              <input id="biz-name" type="text" placeholder="Mi tienda">
-            </div>
-            <div class="field">
-              <label for="biz-year">Año</label>
-              <input id="biz-year" type="number" min="2000" max="2100" step="1">
-            </div>
-          </div>
-          <div class="profile-grid" style="margin-top: 12px;">
-            <div class="field">
-              <label for="tax">Impuestos sobre la utilidad</label>
-              <div class="input-suffix">
-                <input id="tax" type="number" min="0" max="100" step="0.1">
-                <em>%</em>
-              </div>
-            </div>
-            <div class="field">
-              <label for="uncertainty">Incertidumbre</label>
-              <div class="input-suffix">
-                <input id="uncertainty" type="number" min="0" max="80" step="1">
-                <em>%</em>
-              </div>
-              <span class="hint">Mueve la ganancia neta a un rango bajo / esperado / alto.</span>
+          <div class="field">
+            <label for="tax">Impuestos</label>
+            <div class="input-suffix">
+              <input id="tax" type="number" min="0" max="100" step="0.1">
+              <em>%</em>
             </div>
           </div>
-        </section>
+          <div class="field">
+            <label for="uncertainty">Incertidumbre</label>
+            <div class="input-suffix">
+              <input id="uncertainty" type="number" min="0" max="80" step="1">
+              <em>%</em>
+            </div>
+          </div>
+          <button class="btn btn-ghost" type="button" id="btn-ejemplo">Cargar ejemplo</button>
+        </div>
+      </div>
 
-        <section class="card card-pad">
-          <div class="list-head">
-            <h2>Ingresos</h2>
-            <button class="btn" type="button" id="add-income">Añadir ingreso</button>
-          </div>
-          <div class="rows" id="income-rows"></div>
-        </section>
+      <div class="tabs overview-tabs" role="tablist" aria-label="Vistas del año">
+        <button type="button" role="tab" data-tab="recopilado" class="is-active">Recopilado</button>
+        <button type="button" role="tab" data-tab="meses">Meses</button>
+        <button type="button" role="tab" data-tab="factura">Factura</button>
+      </div>
 
+      <div id="panel-recopilado">
         <section class="card card-pad">
           <div class="list-head">
             <div>
-              <h2>Costos directos</h2>
-              <p class="faint">Materia prima, mercancía, lo que cuesta producir o comprar lo que vendes.</p>
+              <h2>Productos</h2>
+              <p class="faint">Nombre y valor. En cada mes solo indicas cuántos se vendieron.</p>
             </div>
-            <button class="btn" type="button" id="add-cost">Añadir costo</button>
+            <button class="btn" type="button" id="add-product">Añadir producto</button>
           </div>
-          <div class="rows" id="cost-rows"></div>
+          <div class="product-list" id="product-list"></div>
         </section>
 
-        <section class="card card-pad">
+        <div class="metrics pyme-metrics" id="year-metrics"></div>
+        <div class="overview-grid">
+          <article class="card card-pad">
+            <div class="list-head">
+              <h2>De la venta a la ganancia</h2>
+              <p class="faint">Totales del año</p>
+            </div>
+            <div class="chart-wrap">
+              <svg id="pnl-chart" aria-label="Barras del estado de resultados"></svg>
+            </div>
+          </article>
+          <article class="card card-pad">
+            <h2>En qué se va el dinero</h2>
+            <div class="chart-wrap">
+              <svg id="mix-donut" aria-label="Costos y gastos del año"></svg>
+            </div>
+          </article>
+        </div>
+
+        <article class="card card-pad pulse-card">
           <div class="list-head">
-            <div>
-              <h2>Gastos del negocio</h2>
-              <p class="faint">Arriendo, nómina, servicios. Marca si es fijo o variable.</p>
-            </div>
-            <button class="btn" type="button" id="add-expense">Añadir gasto</button>
+            <h2>Pulso del año</h2>
+            <p class="faint">Ventas, costos y gastos mes a mes</p>
           </div>
-          <div class="rows" id="expense-rows"></div>
-        </section>
-      </div>
-
-      <aside class="stack">
-        <div class="metrics" id="metrics"></div>
-        <article class="card card-pad">
-          <h2>De la venta a la ganancia</h2>
-          <div class="chart-wrap">
-            <svg id="pnl-chart" aria-label="Barras del estado de resultados"></svg>
+          <div class="chart-wrap pulse-wrap">
+            <svg id="year-chart" aria-label="Ventas y salidas del año"></svg>
+          </div>
+          <div class="legend">
+            <span><i style="background:#9cbaa4"></i>Ventas</span>
+            <span><i style="background:#c98970"></i>Costos</span>
+            <span><i style="background:#8aa4c4"></i>Gastos</span>
+            <span><i style="background:#d4c4a0"></i>Ganancia neta</span>
           </div>
         </article>
+
         <article class="card card-pad">
           <h2>Rango de incertidumbre</h2>
+          <p class="faint range-note">Mueve la ganancia neta a un rango bajo / esperado / alto.</p>
           <div class="chart-wrap">
             <svg id="range-chart" aria-label="Ganancia neta baja, esperada y alta"></svg>
           </div>
         </article>
-        <article class="card card-pad">
-          <h2>En qué se va el dinero</h2>
-          <div class="chart-wrap">
-            <svg id="mix-donut" aria-label="Costos y gastos"></svg>
+      </div>
+
+      <div id="panel-meses" hidden>
+        <section class="months-panel">
+          <div class="list-head">
+            <h2>Meses de <span id="months-year">2026</span></h2>
+            <p class="faint">Entra a un mes para anotar ventas y gastos</p>
           </div>
-        </article>
-      </aside>
-    </div>
+          <div class="month-grid" id="month-grid"></div>
+        </section>
+      </div>
+
+      <div id="panel-factura" hidden>
+        <article class="card invoice" id="invoice"></article>
+      </div>
+    </section>
+
+    <section id="view-month" hidden>
+      <button class="btn btn-ghost back-btn" type="button" id="btn-back">← Volver a los meses</button>
+      <div class="page-head">
+        <p class="kicker"><span></span> Mes</p>
+        <h1 id="month-title">Enero 2026</h1>
+        <p class="lede">Indica cuántas unidades se vendieron. El ingreso se calcula solo. Luego anotas costos y gastos de este mes.</p>
+      </div>
+
+      <div class="workspace">
+        <div class="stack">
+          <section class="card card-pad">
+            <div class="field">
+              <label for="month-notes">Notas del mes</label>
+              <textarea id="month-notes" placeholder="Temporada, pedidos grandes, recordatorios…"></textarea>
+            </div>
+          </section>
+          <section class="card card-pad">
+            <div class="list-head">
+              <div>
+                <h2>Ventas</h2>
+                <p class="faint">Cantidad vendida de cada producto</p>
+              </div>
+              <button class="btn" type="button" id="add-product-month">Añadir producto</button>
+            </div>
+            <p class="faint contrib-hint" id="sales-hint"></p>
+            <div class="rows" id="sales-rows"></div>
+            <div class="list-total">
+              <span class="muted">Total ventas</span>
+              <strong id="income-total">$0</strong>
+            </div>
+          </section>
+          <section class="card card-pad">
+            <div class="list-head">
+              <div>
+                <h2>Costos directos</h2>
+                <p class="faint">Materia prima, mercancía, lo que cuesta producir o comprar lo que vendes.</p>
+              </div>
+              <button class="btn" type="button" id="add-cost">Añadir costo</button>
+            </div>
+            <div class="rows" id="cost-rows"></div>
+            <div class="list-total">
+              <span class="muted">Total costos</span>
+              <strong id="cost-total">$0</strong>
+            </div>
+          </section>
+          <section class="card card-pad">
+            <div class="list-head">
+              <div>
+                <h2>Gastos del negocio</h2>
+                <p class="faint">Arriendo, nómina, servicios. Marca si es fijo o variable.</p>
+              </div>
+              <button class="btn" type="button" id="add-expense">Añadir gasto</button>
+            </div>
+            <div class="rows" id="expense-rows"></div>
+            <div class="list-total">
+              <span class="muted">Total gastos</span>
+              <strong id="expense-total">$0</strong>
+            </div>
+          </section>
+        </div>
+        <aside class="stack">
+          <div class="metrics" id="month-metrics"></div>
+          <article class="card card-pad">
+            <h2>En qué se va el dinero</h2>
+            <div class="chart-wrap">
+              <svg id="month-donut" aria-label="Costos y gastos del mes"></svg>
+            </div>
+          </article>
+        </aside>
+      </div>
+    </section>
   </main>
 
   <script src="../../assets/js/norte.js"></script>
