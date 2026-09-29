@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#08090b">
+  <meta name="description" content="Calculadoras de interés compuesto en dólares y pesos colombianos, con inflación, ganancia mensual y gráfica.">
+  <title>Inversiones — Norte</title>
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="inversiones.css">
+</head>
+<body>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <header class="topbar">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M16 5.5v21" stroke="#d4c4a0" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M16 5.5 11.2 13.2h9.6L16 5.5Z" fill="#d4c4a0"/>
+        <circle cx="16" cy="16.8" r="2.1" stroke="#9cbaa4" stroke-width="1.2"/>
+      </svg>
+      Norte
+    </a>
+    <nav class="nav" aria-label="Secciones">
+      <a href="../../index.html">Inicio</a>
+      <a href="./index.html" class="is-active">Inversiones</a>
+      <a href="../finanzas-personales/index.html">Flujo personal</a>
+    </nav>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost" type="button" id="btn-cargar">Cargar datos</button>
+      <button class="btn btn-primary" type="button" id="btn-guardar">Guardar datos</button>
+      <input class="hidden-file" id="file-input" type="file" accept="application/json,.json">
+    </div>
+  </header>
+
+  <main id="contenido" class="page">
+    <div class="page-head">
+      <div>
+        <p class="kicker"><span></span> 01 · Crecimiento</p>
+        <h1>Inversiones</h1>
+        <p class="lede">Dos calculadoras de interés compuesto: una en dólares y otra en pesos colombianos. Puedes incluir inflación para ver la ganancia real y el poder adquisitivo.</p>
+      </div>
+    </div>
+
+    <div class="workspace">
+      <aside class="stack">
+        <section class="card card-pad">
+          <div class="tabs" role="tablist" aria-label="Moneda">
+            <button type="button" role="tab" id="tab-usd" aria-selected="true" class="is-active">Dólares USD</button>
+            <button type="button" role="tab" id="tab-cop" aria-selected="false">Pesos COP</button>
+          </div>
+
+          <form class="form-grid" id="calc-form" style="margin-top: 18px;">
+            <div class="field">
+              <label for="principal">Capital inicial</label>
+              <div class="input-suffix">
+                <input id="principal" name="principal" type="number" min="0" step="any" inputmode="decimal" required>
+                <em id="principal-suffix">USD</em>
+              </div>
+            </div>
+            <div class="field">
+              <label for="monthly">Aporte mensual</label>
+              <div class="input-suffix">
+                <input id="monthly" name="monthly" type="number" min="0" step="any">
+                <em id="monthly-suffix">USD</em>
+              </div>
+            </div>
+            <div class="field">
+              <label for="rate">Tasa de interés anual</label>
+              <div class="input-suffix">
+                <input id="rate" name="rate" type="number" min="0" max="100" step="0.01" required>
+                <em>%</em>
+              </div>
+              <span class="hint">Se capitaliza cada mes.</span>
+            </div>
+            <div class="field">
+              <label for="years">Plazo</label>
+              <div class="input-suffix">
+                <input id="years" name="years" type="number" min="1" max="50" step="1" required>
+                <em>años</em>
+              </div>
+            </div>
+            <div class="field">
+              <label for="inflation">Inflación anual</label>
+              <div class="chip-row" id="inflation-presets" aria-label="Presets de inflación"></div>
+              <div class="input-suffix">
+                <input id="inflation" name="inflation" type="number" min="0" max="80" step="0.01">
+                <em>%</em>
+              </div>
+              <span class="hint" id="inflation-hint">Puedes dejar el valor sugerido o escribir el tuyo.</span>
+            </div>
+          </form>
+
+          <details class="note">
+            <summary>Cómo se calcula</summary>
+            <p>El capital crece mes a mes con la tasa anual dividida en 12. Los aportes entran al final de cada mes. El valor real (poder adquisitivo) descuenta la inflación que indiques: es lo que valdría ese dinero en pesos o dólares de hoy. La ganancia mensual es el interés del último mes, en términos nominales y reales.</p>
+            <ul>
+              <li>Los presets de inflación son referencias de largo plazo, no datos en vivo.</li>
+              <li>EE.UU. ~2,5% (CPI) · Eurozona ~2,0% (HICP) · Colombia ~5,5% (IPC).</li>
+            </ul>
+          </details>
+        </section>
+      </aside>
+
+      <section class="results">
+        <div class="metrics" id="metrics"></div>
+        <article class="card card-pad">
+          <div class="year-title">
+            <h2>Proyección</h2>
+            <p class="faint" id="chart-caption">Valor de la cuenta frente al poder adquisitivo</p>
+          </div>
+          <div class="chart-wrap">
+            <svg id="chart" aria-label="Gráfica de interés compuesto"></svg>
+          </div>
+          <div class="legend">
+            <span><i style="background:#d4c4a0"></i>Valor de la cuenta</span>
+            <span><i style="background:#9cbaa4"></i>Poder adquisitivo</span>
+            <span><i style="background:#6f6960; height:2px"></i>Dinero aportado</span>
+          </div>
+        </article>
+        <article class="card card-pad">
+          <div class="year-title">
+            <h2>Año a año</h2>
+            <p class="faint">Cifras al cierre de cada año</p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Año</th>
+                  <th>Aportado</th>
+                  <th>Intereses</th>
+                  <th>Valor</th>
+                  <th>Valor real</th>
+                </tr>
+              </thead>
+              <tbody id="year-body"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </div>
+  </main>
+
+  <script src="../../assets/js/norte.js"></script>
+  <script src="../../assets/js/charts.js"></script>
+  <script src="inversiones.js"></script>
+</body>
+</html>

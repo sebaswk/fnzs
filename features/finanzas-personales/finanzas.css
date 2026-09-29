@@ -1,0 +1,253 @@
+.page-head {
+  padding-top: 18px;
+}
+
+.page-head .lede {
+  margin-top: 12px;
+}
+
+.stack {
+  display: grid;
+  gap: 16px;
+}
+
+.year-bar {
+  display: grid;
+  gap: 16px;
+  margin: 22px 0 18px;
+}
+
+.year-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.year-nav strong {
+  font-family: var(--serif);
+  font-size: 2rem;
+  font-weight: 500;
+  min-width: 5rem;
+  text-align: center;
+}
+
+.year-nav .btn {
+  width: 42px;
+  padding: 8px 0;
+}
+
+.year-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.year-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.savings-panel,
+.months-panel {
+  margin-top: 16px;
+}
+
+.savings-list {
+  display: grid;
+  gap: 12px;
+}
+
+.saving-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) 160px 160px 40px;
+  gap: 10px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(8, 9, 11, 0.35);
+}
+
+.saving-card .progress {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 99px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.saving-card .progress span {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+  border-radius: 99px;
+}
+
+.saving-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.month-card {
+  text-align: left;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(239, 232, 220, 0.035), rgba(239, 232, 220, 0.015));
+  color: var(--ink);
+  border-radius: 16px;
+  padding: 16px;
+  min-height: 132px;
+  display: grid;
+  align-content: space-between;
+  gap: 10px;
+}
+
+.month-card:hover {
+  border-color: var(--gold);
+}
+
+.month-card .name {
+  font-family: var(--serif);
+  font-size: 1.2rem;
+}
+
+.month-card .mini {
+  font-size: 12px;
+  color: var(--muted);
+  display: grid;
+  gap: 4px;
+}
+
+.month-card.is-empty .name {
+  color: var(--muted);
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  gap: 18px;
+  align-items: start;
+  margin-top: 22px;
+}
+
+.list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.list-head .faint {
+  margin: 6px 0 0;
+}
+
+.rows {
+  display: grid;
+  gap: 10px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) 140px 40px;
+  gap: 8px;
+  align-items: center;
+}
+
+.row.expense {
+  grid-template-columns: minmax(0, 1fr) 150px 120px 40px;
+}
+
+.row.contrib {
+  grid-template-columns: minmax(0, 1.2fr) 140px 40px;
+}
+
+.row input,
+.row select {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 11px 12px;
+  font-size: 14px;
+  outline: none;
+}
+
+.row input:focus,
+.row select:focus {
+  border-color: var(--gold);
+}
+
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+}
+
+.icon-btn:hover {
+  border-color: var(--clay);
+  color: var(--clay);
+}
+
+.list-total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.contrib-hint {
+  margin-bottom: 10px;
+}
+
+.back-btn {
+  margin-top: 18px;
+}
+
+.empty-note {
+  color: var(--faint);
+  font-size: 14px;
+  padding: 8px 0;
+}
+
+@media (max-width: 960px) {
+  .overview-grid,
+  .workspace,
+  .year-tools,
+  .saving-card,
+  .row,
+  .row.expense,
+  .row.contrib {
+    grid-template-columns: 1fr;
+  }
+
+  .month-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .icon-btn {
+    width: 100%;
+  }
+}

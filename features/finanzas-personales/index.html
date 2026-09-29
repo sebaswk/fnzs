@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#08090b">
+  <meta name="description" content="Flujo personal: recopilado anual, meses, ahorros acumulados e ingresos y egresos. Guarda tus datos en un archivo ligero.">
+  <title>Flujo personal — Norte</title>
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="finanzas.css">
+</head>
+<body>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <header class="topbar">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M16 5.5v21" stroke="#d4c4a0" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M16 5.5 11.2 13.2h9.6L16 5.5Z" fill="#d4c4a0"/>
+        <circle cx="16" cy="16.8" r="2.1" stroke="#9cbaa4" stroke-width="1.2"/>
+      </svg>
+      Norte
+    </a>
+    <nav class="nav" aria-label="Secciones">
+      <a href="../../index.html">Inicio</a>
+      <a href="../inversiones/index.html">Inversiones</a>
+      <a href="./index.html" class="is-active">Flujo personal</a>
+    </nav>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost" type="button" id="btn-cargar">Cargar datos</button>
+      <button class="btn btn-primary" type="button" id="btn-guardar">Guardar datos</button>
+      <input class="hidden-file" id="file-input" type="file" accept="application/json,.json">
+    </div>
+  </header>
+
+  <main id="contenido" class="page">
+    <section id="view-overview">
+      <div class="page-head">
+        <p class="kicker"><span></span> 02 · Caja del año</p>
+        <h1>Flujo personal</h1>
+        <p class="lede">Esta es la vista general: el año completo, los ahorros que se van acumulando y los meses para anotar. Entra a un mes para cargar ingresos, egresos y aportes.</p>
+      </div>
+
+      <div class="year-bar card card-pad">
+        <div class="year-nav">
+          <button class="btn" type="button" id="year-prev" aria-label="Año anterior">‹</button>
+          <strong id="year-label">2026</strong>
+          <button class="btn" type="button" id="year-next" aria-label="Año siguiente">›</button>
+        </div>
+        <div class="year-chips" id="year-chips"></div>
+        <div class="year-tools">
+          <div class="field">
+            <label for="nombre">Nombre o apodo</label>
+            <input id="nombre" type="text" placeholder="Opcional" autocomplete="name">
+          </div>
+          <button class="btn btn-ghost" type="button" id="btn-ejemplo">Cargar ejemplo</button>
+        </div>
+      </div>
+
+      <div class="metrics" id="year-metrics"></div>
+
+      <div class="overview-grid">
+        <article class="card card-pad">
+          <div class="list-head">
+            <h2>Pulso del año</h2>
+            <p class="faint">Ingresos, egresos y aportes mes a mes</p>
+          </div>
+          <div class="chart-wrap">
+            <svg id="year-chart" aria-label="Gráfica anual de flujo"></svg>
+          </div>
+          <div class="legend">
+            <span><i style="background:#9cbaa4"></i>Ingresos</span>
+            <span><i style="background:#c98970"></i>Egresos</span>
+            <span><i style="background:#d4c4a0"></i>Ahorros</span>
+          </div>
+        </article>
+        <article class="card card-pad">
+          <h2>Egresos del año</h2>
+          <div class="chart-wrap">
+            <svg id="year-donut" aria-label="Egresos por categoría"></svg>
+          </div>
+        </article>
+      </div>
+
+      <section class="card card-pad savings-panel">
+        <div class="list-head">
+          <div>
+            <h2>Ahorros</h2>
+            <p class="faint">Se acumulan entre meses y años. Si un mes aporta, aquí suma.</p>
+          </div>
+          <button class="btn" type="button" id="add-saving">Nuevo ahorro</button>
+        </div>
+        <div class="savings-list" id="savings-list"></div>
+      </section>
+
+      <section class="months-panel">
+        <div class="list-head">
+          <h2>Meses de <span id="months-year">2026</span></h2>
+          <p class="faint">Entra a un mes para anotar</p>
+        </div>
+        <div class="month-grid" id="month-grid"></div>
+      </section>
+    </section>
+
+    <section id="view-month" hidden>
+      <button class="btn btn-ghost back-btn" type="button" id="btn-back">← Volver al recopilado</button>
+      <div class="page-head">
+        <p class="kicker"><span></span> Mes</p>
+        <h1 id="month-title">Enero 2026</h1>
+        <p class="lede">Anota lo de este mes. Los aportes a ahorros salen del flujo del mes y se suman al ahorro elegido.</p>
+      </div>
+
+      <div class="workspace">
+        <div class="stack">
+          <section class="card card-pad">
+            <div class="field">
+              <label for="month-notes">Notas del mes</label>
+              <textarea id="month-notes" placeholder="Metas, deudas, recordatorios…"></textarea>
+            </div>
+          </section>
+          <section class="card card-pad">
+            <div class="list-head">
+              <h2>Ingresos</h2>
+              <button class="btn" type="button" id="add-income">Añadir ingreso</button>
+            </div>
+            <div class="rows" id="income-rows"></div>
+            <div class="list-total">
+              <span class="muted">Total ingresos</span>
+              <strong id="income-total">$0</strong>
+            </div>
+          </section>
+          <section class="card card-pad">
+            <div class="list-head">
+              <h2>Egresos</h2>
+              <button class="btn" type="button" id="add-expense">Añadir egreso</button>
+            </div>
+            <div class="rows" id="expense-rows"></div>
+            <div class="list-total">
+              <span class="muted">Total egresos</span>
+              <strong id="expense-total">$0</strong>
+            </div>
+          </section>
+          <section class="card card-pad">
+            <div class="list-head">
+              <h2>Aportes a ahorros</h2>
+              <button class="btn" type="button" id="add-contrib">Añadir aporte</button>
+            </div>
+            <p class="faint contrib-hint" id="contrib-hint"></p>
+            <div class="rows" id="contrib-rows"></div>
+            <div class="list-total">
+              <span class="muted">Total aportado este mes</span>
+              <strong id="contrib-total">$0</strong>
+            </div>
+          </section>
+        </div>
+        <aside class="stack">
+          <div class="metrics" id="month-metrics"></div>
+          <article class="card card-pad">
+            <h2>Composición de egresos</h2>
+            <div class="chart-wrap">
+              <svg id="month-donut" aria-label="Egresos del mes por categoría"></svg>
+            </div>
+          </article>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script src="../../assets/js/norte.js"></script>
+  <script src="../../assets/js/charts.js"></script>
+  <script src="finanzas.js"></script>
+</body>
+</html>

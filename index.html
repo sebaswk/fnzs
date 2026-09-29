@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#08090b">
+  <meta name="description" content="Norte: herramientas estáticas para inversiones y flujo personal. Calculadoras de interés compuesto e ingresos y egresos, con archivos ligeros para guardar tu información.">
+  <title>Norte — claridad para tu dinero</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/home.css">
+</head>
+<body>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <header class="topbar">
+    <a class="brand" href="./index.html">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M16 5.5v21" stroke="#d4c4a0" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M16 5.5 11.2 13.2h9.6L16 5.5Z" fill="#d4c4a0"/>
+        <circle cx="16" cy="16.8" r="2.1" stroke="#9cbaa4" stroke-width="1.2"/>
+      </svg>
+      Norte
+    </a>
+    <nav class="nav" aria-label="Secciones">
+      <a href="./index.html" class="is-active">Inicio</a>
+      <a href="features/inversiones/index.html">Inversiones</a>
+      <a href="features/finanzas-personales/index.html">Flujo personal</a>
+    </nav>
+  </header>
+
+  <main id="contenido" class="page home">
+    <section class="hero">
+      <p class="kicker"><span></span> Herramientas estáticas</p>
+      <div class="hero-copy">
+        <h1>Claridad para tu dinero.</h1>
+        <p class="lede">Dos secciones para empezar: proyectar inversiones con inflación y ver el pulso de tus ingresos, egresos y ahorros. Sin cuentas ni servidores. Lo que calcules lo guardas en un archivo ligero y lo vuelves a cargar cuando quieras.</p>
+      </div>
+    </section>
+
+    <section class="catalog" aria-label="Features disponibles">
+      <a class="card feature-card growth" href="features/inversiones/index.html">
+        <div>
+          <div class="index">01 · Crecimiento</div>
+          <h2>Inversiones</h2>
+          <p>Interés compuesto en dólares y en pesos colombianos, con gráfica y poder adquisitivo según la inflación que tú definas.</p>
+          <ul>
+            <li>Calculadora USD con inflación de EE.UU. y Eurozona</li>
+            <li>Calculadora COP para el mercado local</li>
+            <li>Ganancia mensual nominal y real</li>
+          </ul>
+        </div>
+        <span class="go">Abrir sección →</span>
+        <div class="orb" aria-hidden="true"></div>
+      </a>
+
+      <a class="card feature-card flow" href="features/finanzas-personales/index.html">
+        <div>
+          <div class="index">02 · Caja del año</div>
+          <h2>Flujo personal</h2>
+          <p>Recopila el año, entra mes a mes y acumula ahorros concretos. Los años se pueden ir sumando.</p>
+          <ul>
+            <li>Vista general y secciones por mes</li>
+            <li>Ahorros que crecen con cada aporte</li>
+            <li>Exporta o recupera tus datos en un archivo</li>
+          </ul>
+        </div>
+        <span class="go">Abrir sección →</span>
+        <div class="orb" aria-hidden="true"></div>
+      </a>
+    </section>
+
+    <footer class="home-foot">
+      <p>Norte vive en el navegador. El archivo que generas es la memoria.</p>
+      <p>v1 · web estática</p>
+    </footer>
+  </main>
+  <script src="assets/js/norte.js"></script>
+</body>
+</html>

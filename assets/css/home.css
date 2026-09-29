@@ -1,0 +1,117 @@
+.hero {
+  padding: 48px 0 28px;
+  display: grid;
+  gap: 22px;
+}
+
+.hero-copy {
+  display: grid;
+  gap: 18px;
+  max-width: 42rem;
+}
+
+.catalog {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 18px;
+  margin-top: 28px;
+}
+
+.feature-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 340px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--line-strong);
+}
+
+.feature-card .index {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.feature-card h2 {
+  margin-top: 18px;
+  font-size: clamp(2rem, 4vw, 3.1rem);
+}
+
+.feature-card p {
+  margin-top: 12px;
+  max-width: 28rem;
+}
+
+.feature-card ul {
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.feature-card li::before {
+  content: "—";
+  color: var(--gold);
+  margin-right: 10px;
+}
+
+.feature-card .go {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 28px;
+  color: var(--gold-2);
+  font-size: 14px;
+}
+
+.feature-card .orb {
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  right: -80px;
+  bottom: -90px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+.feature-card.growth .orb {
+  background: radial-gradient(circle, rgba(212, 196, 160, 0.28), transparent 65%);
+}
+
+.feature-card.flow .orb {
+  background: radial-gradient(circle, rgba(156, 186, 164, 0.28), transparent 65%);
+}
+
+.home-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 40px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--faint);
+}
+
+@media (max-width: 860px) {
+  .catalog {
+    grid-template-columns: 1fr;
+  }
+
+  .feature-card {
+    min-height: 280px;
+  }
+}
