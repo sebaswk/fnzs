@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#08090b">
+  <meta name="description" content="Calculadora de créditos: cuota, seguros y abonos a capital para reducir cuotas o tiempo.">
+  <title>Créditos — Norte</title>
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../inversiones/inversiones.css">
+</head>
+<body>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <header class="topbar">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M16 5.5v21" stroke="#d4c4a0" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M16 5.5 11.2 13.2h9.6L16 5.5Z" fill="#d4c4a0"/>
+        <circle cx="16" cy="16.8" r="2.1" stroke="#9cbaa4" stroke-width="1.2"/>
+      </svg>
+      Norte
+    </a>
+    <nav class="nav" aria-label="Secciones">
+      <a href="../../index.html">Inicio</a>
+      <a href="../finanzas-personales/index.html">Flujo personal</a>
+      <a href="../inversiones/index.html">Inversiones</a>
+      <a href="./index.html" class="is-active">Créditos</a>
+      <a href="../pymes/index.html">Pymes</a>
+    </nav>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost" type="button" id="btn-cargar">Cargar datos</button>
+      <button class="btn btn-primary" type="button" id="btn-guardar">Guardar datos</button>
+      <input class="hidden-file" id="file-input" type="file" accept="application/json,.json">
+    </div>
+  </header>
+
+  <main id="contenido" class="page">
+    <div class="page-head">
+      <div>
+        <p class="kicker"><span></span> 03 · Deuda</p>
+        <h1>Créditos</h1>
+        <p class="lede">Calcula la cuota con interés y seguros. Si haces abonos a capital, mira si te conviene bajar la cuota o acortar el tiempo.</p>
+      </div>
+    </div>
+
+    <div class="workspace">
+      <aside class="stack">
+        <section class="card card-pad">
+          <form class="form-grid" id="loan-form">
+            <div class="field">
+              <label for="principal">Valor del crédito</label>
+              <div class="input-suffix">
+                <input id="principal" type="number" min="0" step="any" required>
+                <em>COP</em>
+              </div>
+            </div>
+            <div class="field">
+              <label for="rate">Interés anual</label>
+              <div class="input-suffix">
+                <input id="rate" type="number" min="0" max="100" step="0.01" required>
+                <em>%</em>
+              </div>
+            </div>
+            <div class="field">
+              <label for="years">Plazo</label>
+              <div class="input-suffix">
+                <input id="years" type="number" min="1" max="40" step="1" required>
+                <em>años</em>
+              </div>
+            </div>
+            <div class="field">
+              <label for="insurance">Seguros mensuales</label>
+              <div class="input-suffix">
+                <input id="insurance" type="number" min="0" step="any">
+                <em>COP</em>
+              </div>
+              <span class="hint">Vida, desempleo u otros. Se suman a cada cuota.</span>
+            </div>
+          </form>
+        </section>
+        <section class="card card-pad">
+          <h2 style="margin-bottom: 14px;">Abonos a capital</h2>
+          <form class="form-grid" id="extra-form">
+            <div class="field">
+              <label for="extra">Abono extra mensual</label>
+              <div class="input-suffix">
+                <input id="extra" type="number" min="0" step="any">
+                <em>COP</em>
+              </div>
+            </div>
+            <div class="field">
+              <label for="extra-from">Desde el mes</label>
+              <input id="extra-from" type="number" min="1" step="1" value="1">
+            </div>
+            <div class="field">
+              <label>Qué quieres reducir</label>
+              <div class="tabs" role="tablist">
+                <button type="button" id="mode-plazo" class="is-active">Tiempo</button>
+                <button type="button" id="mode-cuota">Cuota</button>
+              </div>
+              <span class="hint" id="mode-hint">La cuota se mantiene y el crédito termina antes.</span>
+            </div>
+          </form>
+        </section>
+      </aside>
+
+      <section class="results">
+        <div class="metrics" id="metrics"></div>
+        <article class="card card-pad">
+          <div class="year-title">
+            <h2>Saldo restante</h2>
+            <p class="faint">Con y sin abonos</p>
+          </div>
+          <div class="chart-wrap">
+            <svg id="balance-chart" aria-label="Saldo del crédito en el tiempo"></svg>
+          </div>
+          <div class="legend">
+            <span><i style="background:#c98970"></i>Sin abonos</span>
+            <span><i style="background:#9cbaa4"></i>Con abonos</span>
+          </div>
+        </article>
+        <article class="card card-pad">
+          <div class="year-title">
+            <h2>Intereses frente a capital</h2>
+            <p class="faint">Año a año, con el plan de abonos</p>
+          </div>
+          <div class="chart-wrap">
+            <svg id="mix-chart" aria-label="Intereses y capital por año"></svg>
+          </div>
+          <div class="legend">
+            <span><i style="background:#c98970"></i>Intereses</span>
+            <span><i style="background:#d4c4a0"></i>Capital</span>
+          </div>
+        </article>
+      </section>
+    </div>
+  </main>
+
+  <script src="../../assets/js/norte.js"></script>
+  <script src="../../assets/js/charts.js"></script>
+  <script src="creditos.js"></script>
+</body>
+</html>

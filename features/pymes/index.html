@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#08090b">
+  <meta name="description" content="Pymes: ingresos, costos, ganancia bruta y neta, punto de equilibrio e incertidumbre.">
+  <title>Pymes — Norte</title>
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../inversiones/inversiones.css">
+  <link rel="stylesheet" href="../finanzas-personales/finanzas.css">
+</head>
+<body>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <header class="topbar">
+    <a class="brand" href="../../index.html">
+      <svg viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M16 5.5v21" stroke="#d4c4a0" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M16 5.5 11.2 13.2h9.6L16 5.5Z" fill="#d4c4a0"/>
+        <circle cx="16" cy="16.8" r="2.1" stroke="#9cbaa4" stroke-width="1.2"/>
+      </svg>
+      Norte
+    </a>
+    <nav class="nav" aria-label="Secciones">
+      <a href="../../index.html">Inicio</a>
+      <a href="../finanzas-personales/index.html">Flujo personal</a>
+      <a href="../inversiones/index.html">Inversiones</a>
+      <a href="../creditos/index.html">Créditos</a>
+      <a href="./index.html" class="is-active">Pymes</a>
+    </nav>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost" type="button" id="btn-cargar">Cargar datos</button>
+      <button class="btn btn-primary" type="button" id="btn-guardar">Guardar datos</button>
+      <input class="hidden-file" id="file-input" type="file" accept="application/json,.json">
+    </div>
+  </header>
+
+  <main id="contenido" class="page">
+    <div class="page-head">
+      <div>
+        <p class="kicker"><span></span> 04 · Negocio</p>
+        <h1>Pymes</h1>
+        <p class="lede">Un estado de resultados sencillo: ventas, costo de lo vendido, gastos, impuestos y un rango de incertidumbre si el mes no sale como esperabas.</p>
+      </div>
+    </div>
+
+    <div class="workspace">
+      <div class="stack">
+        <section class="card card-pad">
+          <div class="list-head">
+            <h2>El negocio</h2>
+            <button class="btn btn-ghost" type="button" id="btn-ejemplo">Cargar ejemplo</button>
+          </div>
+          <div class="profile-grid">
+            <div class="field">
+              <label for="biz-name">Nombre</label>
+              <input id="biz-name" type="text" placeholder="Mi tienda">
+            </div>
+            <div class="field">
+              <label for="biz-year">Año</label>
+              <input id="biz-year" type="number" min="2000" max="2100" step="1">
+            </div>
+          </div>
+          <div class="profile-grid" style="margin-top: 12px;">
+            <div class="field">
+              <label for="tax">Impuestos sobre la utilidad</label>
+              <div class="input-suffix">
+                <input id="tax" type="number" min="0" max="100" step="0.1">
+                <em>%</em>
+              </div>
+            </div>
+            <div class="field">
+              <label for="uncertainty">Incertidumbre</label>
+              <div class="input-suffix">
+                <input id="uncertainty" type="number" min="0" max="80" step="1">
+                <em>%</em>
+              </div>
+              <span class="hint">Mueve la ganancia neta a un rango bajo / esperado / alto.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card card-pad">
+          <div class="list-head">
+            <h2>Ingresos</h2>
+            <button class="btn" type="button" id="add-income">Añadir ingreso</button>
+          </div>
+          <div class="rows" id="income-rows"></div>
+        </section>
+
+        <section class="card card-pad">
+          <div class="list-head">
+            <div>
+              <h2>Costos directos</h2>
+              <p class="faint">Materia prima, mercancía, lo que cuesta producir o comprar lo que vendes.</p>
+            </div>
+            <button class="btn" type="button" id="add-cost">Añadir costo</button>
+          </div>
+          <div class="rows" id="cost-rows"></div>
+        </section>
+
+        <section class="card card-pad">
+          <div class="list-head">
+            <div>
+              <h2>Gastos del negocio</h2>
+              <p class="faint">Arriendo, nómina, servicios. Marca si es fijo o variable.</p>
+            </div>
+            <button class="btn" type="button" id="add-expense">Añadir gasto</button>
+          </div>
+          <div class="rows" id="expense-rows"></div>
+        </section>
+      </div>
+
+      <aside class="stack">
+        <div class="metrics" id="metrics"></div>
+        <article class="card card-pad">
+          <h2>De la venta a la ganancia</h2>
+          <div class="chart-wrap">
+            <svg id="pnl-chart" aria-label="Barras del estado de resultados"></svg>
+          </div>
+        </article>
+        <article class="card card-pad">
+          <h2>Rango de incertidumbre</h2>
+          <div class="chart-wrap">
+            <svg id="range-chart" aria-label="Ganancia neta baja, esperada y alta"></svg>
+          </div>
+        </article>
+        <article class="card card-pad">
+          <h2>En qué se va el dinero</h2>
+          <div class="chart-wrap">
+            <svg id="mix-donut" aria-label="Costos y gastos"></svg>
+          </div>
+        </article>
+      </aside>
+    </div>
+  </main>
+
+  <script src="../../assets/js/norte.js"></script>
+  <script src="../../assets/js/charts.js"></script>
+  <script src="pymes.js"></script>
+</body>
+</html>

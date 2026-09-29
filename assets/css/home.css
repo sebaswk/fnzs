@@ -7,12 +7,12 @@
 .hero-copy {
   display: grid;
   gap: 18px;
-  max-width: 42rem;
+  max-width: 40rem;
 }
 
 .catalog {
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-columns: 1fr 1fr;
   gap: 18px;
   margin-top: 28px;
 }
@@ -20,7 +20,7 @@
 .feature-card {
   position: relative;
   overflow: hidden;
-  min-height: 340px;
+  min-height: 260px;
   padding: 28px;
   display: flex;
   flex-direction: column;
@@ -42,28 +42,12 @@
 
 .feature-card h2 {
   margin-top: 18px;
-  font-size: clamp(2rem, 4vw, 3.1rem);
+  font-size: clamp(1.7rem, 3.2vw, 2.5rem);
 }
 
 .feature-card p {
   margin-top: 12px;
   max-width: 28rem;
-}
-
-.feature-card ul {
-  margin: 22px 0 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-.feature-card li::before {
-  content: "—";
-  color: var(--gold);
-  margin-right: 10px;
 }
 
 .feature-card .go {
@@ -94,6 +78,14 @@
   background: radial-gradient(circle, rgba(156, 186, 164, 0.28), transparent 65%);
 }
 
+.feature-card.credit .orb {
+  background: radial-gradient(circle, rgba(201, 137, 112, 0.28), transparent 65%);
+}
+
+.feature-card.pyme .orb {
+  background: radial-gradient(circle, rgba(138, 164, 196, 0.28), transparent 65%);
+}
+
 .home-foot {
   display: flex;
   justify-content: space-between;
@@ -109,9 +101,5 @@
 @media (max-width: 860px) {
   .catalog {
     grid-template-columns: 1fr;
-  }
-
-  .feature-card {
-    min-height: 280px;
   }
 }

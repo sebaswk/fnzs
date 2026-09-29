@@ -184,7 +184,7 @@
       `Tasa real aproximada ${Norte.formatPct(realAnnual)} anual · valor de la cuenta frente al poder adquisitivo`;
 
     metrics.replaceChildren(
-      metric("Valor futuro", money(last.nominal), `${data.years} años · capitalización mensual`),
+      metric("Valor futuro", money(last.nominal), `En dinero de hoy: ${money(last.real)} · ${data.years} años`),
       metric("Poder adquisitivo", money(last.real), `Inflación ${Norte.formatPct(data.inflation)} anual`),
       metric(
         "Intereses ganados",
@@ -219,7 +219,11 @@
       }
     ], {
       formatY: (value) => Norte.formatCompact(value, currency),
-      formatX: (value) => `${Math.round(value)}a`
+      formatX: (value) => {
+        const years = Math.round(value);
+        if (years === 0) return "Inicio";
+        return `${years} ${years === 1 ? "Año" : "Años"}`;
+      }
     });
 
     yearBody.replaceChildren();

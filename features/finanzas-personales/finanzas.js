@@ -16,7 +16,7 @@
     { id: "ocio", label: "Ocio", color: "#e0c07a" },
     { id: "deudas", label: "Deudas", color: "#c47a8a" },
     { id: "ahorro", label: "Ahorro", color: "#7dcea0" },
-    { id: "inversion", label: "Inversión", color: "#c5e0cc" },
+    { id: "inversion", label: "Inversión", color: "#8aa4c4" },
     { id: "otros", label: "Otros", color: "#7a7f8a" }
   ];
 
@@ -33,8 +33,16 @@
       notes: "",
       incomes: [{ id: uid(), name: "", amount: 0 }],
       expenses: [{ id: uid(), name: "", category: "vivienda", amount: 0 }],
-      contributions: []
+      contributions: [],
+      investments: []
     };
+  }
+
+  function normalizeMonth(entry) {
+    if (!entry) return emptyMonth();
+    if (!Array.isArray(entry.investments)) entry.investments = [];
+    if (!Array.isArray(entry.contributions)) entry.contributions = [];
+    return entry;
   }
 
   const now = new Date();
@@ -42,7 +50,9 @@
     profile: { name: "" },
     viewYear: now.getFullYear(),
     openMonth: null,
+    tab: "recopilado",
     savings: [],
+    investments: [],
     years: {}
   };
 
@@ -50,6 +60,11 @@
   const monthView = document.getElementById("view-month");
   const nameInput = document.getElementById("nombre");
   const notesInput = document.getElementById("month-notes");
+  const panels = {
+    recopilado: document.getElementById("panel-recopilado"),
+    meses: document.getElementById("panel-meses"),
+    factura: document.getElementById("panel-factura")
+  };
 
   function money(value) {
     return Norte.formatMoney(value, CURRENCY);
@@ -69,6 +84,7 @@
   function getMonth(year, key, create) {
     const y = ensureYear(year);
     if (!y.months[key] && create) y.months[key] = emptyMonth();
+    if (y.months[key]) normalizeMonth(y.months[key]);
     return y.months[key] || null;
   }
 
@@ -81,30 +97,49 @@
     return (rows || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
   }
 
+  function categorySum(entry, id) {
+    return (entry && entry.expenses || []).reduce((sum, row) => (
+      categoryById(row.category).id === id ? sum + (Number(row.amount) || 0) : sum
+    ), 0);
+  }
+
   function monthTotals(entry) {
     const income = sumList(entry && entry.incomes);
     const expense = sumList(entry && entry.expenses);
     const contrib = sumList(entry && entry.contributions);
+    const invest = sumList(entry && entry.investments);
+    const catAhorro = categorySum(entry, "ahorro");
+    const catInvest = categorySum(entry, "inversion");
     return {
       income,
       expense,
       contrib,
-      balance: income - expense - contrib,
-      spent: expense + contrib
+      invest,
+      egresos: Math.max(0, expense - catAhorro - catInvest),
+      ahorros: contrib + catAhorro,
+      inversiones: invest + catInvest,
+      balance: income - expense - contrib - invest
     };
   }
 
   function yearTotals(year) {
     const y = state.years[String(year)];
-    const acc = { income: 0, expense: 0, contrib: 0, balance: 0 };
+    const acc = {
+      income: 0, expense: 0, contrib: 0, invest: 0,
+      egresos: 0, ahorros: 0, inversiones: 0, balance: 0
+    };
     if (!y) return acc;
     Object.values(y.months).forEach((entry) => {
-      const t = monthTotals(entry);
+      const t = monthTotals(normalizeMonth(entry));
       acc.income += t.income;
       acc.expense += t.expense;
       acc.contrib += t.contrib;
+      acc.invest += t.invest;
+      acc.egresos += t.egresos;
+      acc.ahorros += t.ahorros;
+      acc.inversiones += t.inversiones;
     });
-    acc.balance = acc.income - acc.expense - acc.contrib;
+    acc.balance = acc.income - acc.expense - acc.contrib - acc.invest;
     return acc;
   }
 
@@ -114,12 +149,14 @@
     return [...new Set(keys)].sort((a, b) => a - b);
   }
 
-  function savingTotal(id) {
+  function potTotal(kind, id) {
+    const field = kind === "saving" ? "contributions" : "investments";
+    const key = kind === "saving" ? "savingId" : "investmentId";
     let total = 0;
     Object.values(state.years).forEach((year) => {
       Object.values(year.months || {}).forEach((entry) => {
-        (entry.contributions || []).forEach((row) => {
-          if (row.savingId === id) total += Number(row.amount) || 0;
+        (entry[field] || []).forEach((row) => {
+          if (row[key] === id) total += Number(row.amount) || 0;
         });
       });
     });
@@ -182,7 +219,8 @@
 
   function monthHasData(entry) {
     if (!entry) return false;
-    return sumList(entry.incomes) > 0 || sumList(entry.expenses) > 0 || sumList(entry.contributions) > 0;
+    const t = monthTotals(entry);
+    return t.income > 0 || t.expense > 0 || t.contrib > 0 || t.invest > 0;
   }
 
   function setView(mode) {
@@ -190,21 +228,34 @@
     monthView.hidden = mode !== "month";
   }
 
+  function setTab(tab) {
+    state.tab = tab;
+    Object.entries(panels).forEach(([name, node]) => {
+      node.hidden = name !== tab;
+    });
+    document.querySelectorAll(".overview-tabs [data-tab]").forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.tab === tab);
+    });
+    if (tab === "factura") renderInvoice();
+    if (tab === "meses") renderMonthGrid();
+    if (tab === "recopilado") {
+      renderSavings();
+      renderInvestments();
+    }
+  }
+
   function openMonth(year, key) {
     state.viewYear = Number(year);
     state.openMonth = { year: Number(year), month: key };
     getMonth(year, key, true);
-    if (location.hash !== `#${year}-${key}`) {
-      location.hash = `${year}-${key}`;
-    }
+    if (location.hash !== `#${year}-${key}`) location.hash = `${year}-${key}`;
     render();
   }
 
   function closeMonth() {
     state.openMonth = null;
-    if (location.hash) {
-      history.replaceState(null, "", location.pathname + location.search);
-    }
+    state.tab = "meses";
+    if (location.hash) history.replaceState(null, "", location.pathname + location.search);
     render();
   }
 
@@ -216,7 +267,8 @@
 
   function renderYearBar() {
     document.getElementById("year-label").textContent = String(state.viewYear);
-    document.getElementById("months-year").textContent = String(state.viewYear);
+    const monthsYear = document.getElementById("months-year");
+    if (monthsYear) monthsYear.textContent = String(state.viewYear);
     const chips = document.getElementById("year-chips");
     chips.replaceChildren();
     allYearsList().forEach((year) => {
@@ -237,86 +289,78 @@
   function renderOverview() {
     const totals = yearTotals(state.viewYear);
     const rate = totals.income > 0 ? ((totals.income - totals.expense) / totals.income) * 100 : 0;
-    const historic = allYearsList().reduce((acc, year) => {
-      const t = yearTotals(year);
-      acc.contrib += t.contrib;
-      return acc;
-    }, { contrib: 0 });
-
     document.getElementById("year-metrics").replaceChildren(
       metric("Ingresos del año", money(totals.income), `${state.viewYear}`),
-      metric("Egresos del año", money(totals.expense), "Sin contar aportes a ahorros"),
-      metric("Aportes a ahorros", money(totals.contrib), `Acumulado de todos los años: ${money(historic.contrib)}`),
+      metric("Egresos del año", money(totals.egresos), "Gastos del día a día"),
+      metric("Ahorros e inversiones", money(totals.ahorros + totals.inversiones), `Ahorros ${money(totals.ahorros)} · Inversiones ${money(totals.inversiones)}`),
       metric("Balance del año", money(totals.balance), `Tasa de ahorro ${Norte.formatPct(rate)}`, totals.balance >= 0 ? "positive" : "negative")
     );
 
     const points = MONTHS.map((name, index) => {
       const entry = getMonth(state.viewYear, monthKey(index), false);
       const t = monthTotals(entry);
-      return { x: index + 1, income: t.income, expense: t.expense, contrib: t.contrib, name };
+      return { x: index + 1, ...t, name };
     });
     NorteCharts.lineChart(document.getElementById("year-chart"), [
       { name: "Ingresos", color: "#9cbaa4", points: points.map((p) => ({ x: p.x, y: p.income })) },
-      { name: "Egresos", color: "#c98970", points: points.map((p) => ({ x: p.x, y: p.expense })) },
-      { name: "Ahorros", color: "#d4c4a0", points: points.map((p) => ({ x: p.x, y: p.contrib })) }
+      { name: "Egresos", color: "#c98970", points: points.map((p) => ({ x: p.x, y: p.egresos })) },
+      { name: "Ahorros", color: "#d4c4a0", points: points.map((p) => ({ x: p.x, y: p.ahorros })) },
+      { name: "Inversiones", color: "#8aa4c4", points: points.map((p) => ({ x: p.x, y: p.inversiones })) }
     ], {
       formatY: (value) => Norte.formatCompact(value, CURRENCY),
       formatX: (value) => MONTHS[Math.max(0, Math.round(value) - 1)].slice(0, 3)
     });
 
     const slices = yearCategories(state.viewYear);
-    const yearContrib = totals.contrib;
-    if (yearContrib > 0) {
-      slices.push({ id: "aportes", label: "Aportes a ahorros", color: "#efe0bf", value: yearContrib });
-    }
     NorteCharts.donutChart(document.getElementById("year-donut"), slices, {
-      centerLabel: "Salidas",
-      centerValue: money(totals.expense + totals.contrib),
-      empty: "Aún no hay egresos este año"
+      centerLabel: "Egresos",
+      centerValue: money(totals.expense),
+      empty: "Aún no hay egresos este año",
+      format: money
     });
 
     renderSavings();
+    renderInvestments();
     renderMonthGrid();
+    renderInvoice();
+    setTab(state.tab);
   }
 
-  function renderSavings() {
-    const box = document.getElementById("savings-list");
+  function renderPots(kind) {
+    const list = kind === "saving" ? state.savings : state.investments;
+    const box = document.getElementById(kind === "saving" ? "savings-list" : "invest-list");
+    const emptyText = kind === "saving"
+      ? "Crea un ahorro y luego aporta desde cada mes. El total se acumula."
+      : "Crea una inversión (CDT, fondo, acciones…) y aporta mes a mes.";
     box.replaceChildren();
-    if (!state.savings.length) {
+    if (!list.length) {
       const p = document.createElement("p");
       p.className = "empty-note";
-      p.textContent = "Crea un ahorro (viaje, emergencia, vivienda…) y luego aporta desde cada mes. El total se acumula.";
+      p.textContent = emptyText;
       box.appendChild(p);
       return;
     }
-    state.savings.forEach((saving, index) => {
+    list.forEach((pot, index) => {
       const card = document.createElement("article");
       card.className = "saving-card";
       const nameField = document.createElement("div");
       nameField.className = "field";
       const nameLabel = document.createElement("label");
       nameLabel.textContent = "Nombre";
-      const name = makeInput(saving.name, (input) => {
-        saving.name = input.value;
-        if (state.openMonth) renderContribs();
-      }, { type: "text", placeholder: "Fondo de emergencia" });
+      const name = makeInput(pot.name, (input) => {
+        pot.name = input.value;
+        if (state.openMonth) {
+          renderContribs();
+          renderPlacements();
+        }
+      }, { type: "text", placeholder: kind === "saving" ? "Fondo de emergencia" : "CDT o fondo" });
       nameField.append(nameLabel, name);
 
+      const total = potTotal(kind, pot.id);
       const targetField = document.createElement("div");
       targetField.className = "field";
       const targetLabel = document.createElement("label");
       targetLabel.textContent = "Meta (opcional)";
-      const target = makeInput(saving.target || "", (input) => {
-        saving.target = Number.parseFloat(input.value) || 0;
-        const pct = saving.target ? Math.min((total / saving.target) * 100, 999) : 0;
-        meta.textContent = saving.target
-          ? `${Norte.formatPct(pct)} de la meta`
-          : "Sin meta definida";
-        fill.style.width = saving.target ? `${Math.min(100, (total / saving.target) * 100)}%` : (total > 0 ? "100%" : "0%");
-      }, { type: "number", min: "0", step: "any", placeholder: "0" });
-      targetField.append(targetLabel, target);
-
-      const total = savingTotal(saving.id);
       const done = document.createElement("div");
       done.className = "field";
       const doneLabel = document.createElement("label");
@@ -325,28 +369,46 @@
       strong.textContent = money(total);
       const meta = document.createElement("div");
       meta.className = "saving-meta";
-      meta.textContent = saving.target
-        ? `${Norte.formatPct(Math.min((total / saving.target) * 100, 999))} de la meta`
-        : "Sin meta definida";
-      done.append(doneLabel, strong, meta);
-
       const bar = document.createElement("div");
       bar.className = "progress";
       const fill = document.createElement("span");
-      fill.style.width = saving.target ? `${Math.min(100, (total / saving.target) * 100)}%` : (total > 0 ? "100%" : "0%");
+      const paint = () => {
+        meta.textContent = pot.target
+          ? `${Norte.formatPct(Math.min((total / pot.target) * 100, 999))} de la meta`
+          : "Sin meta definida";
+        fill.style.width = pot.target ? `${Math.min(100, (total / pot.target) * 100)}%` : (total > 0 ? "100%" : "0%");
+      };
+      const target = makeInput(pot.target || "", (input) => {
+        pot.target = Number.parseFloat(input.value) || 0;
+        paint();
+      }, { type: "number", min: "0", step: "any", placeholder: "0" });
+      targetField.append(targetLabel, target);
+      paint();
+      done.append(doneLabel, strong, meta);
       bar.appendChild(fill);
-
       card.append(nameField, targetField, done, removeButton(() => {
-        state.savings.splice(index, 1);
+        list.splice(index, 1);
         Object.values(state.years).forEach((year) => {
           Object.values(year.months || {}).forEach((entry) => {
-            entry.contributions = (entry.contributions || []).filter((row) => row.savingId !== saving.id);
+            if (kind === "saving") {
+              entry.contributions = (entry.contributions || []).filter((row) => row.savingId !== pot.id);
+            } else {
+              entry.investments = (entry.investments || []).filter((row) => row.investmentId !== pot.id);
+            }
           });
         });
         render();
       }), bar);
       box.appendChild(card);
     });
+  }
+
+  function renderSavings() {
+    renderPots("saving");
+  }
+
+  function renderInvestments() {
+    renderPots("investment");
   }
 
   function renderMonthGrid() {
@@ -366,23 +428,127 @@
       const mini = document.createElement("div");
       mini.className = "mini";
       if (filled) {
-        const a = document.createElement("span");
-        a.textContent = `Ingresos ${money(t.income)}`;
-        const b = document.createElement("span");
-        b.textContent = `Egresos ${money(t.expense)}`;
-        const c = document.createElement("span");
-        c.className = t.balance >= 0 ? "positive" : "negative";
-        c.textContent = `Balance ${money(t.balance)}`;
-        mini.append(a, b, c);
+        mini.append(
+          Object.assign(document.createElement("span"), { textContent: `Ingresos ${money(t.income)}` }),
+          Object.assign(document.createElement("span"), { textContent: `Egresos ${money(t.egresos)}` }),
+          Object.assign(document.createElement("span"), { textContent: `Balance ${money(t.balance)}`, className: t.balance >= 0 ? "positive" : "negative" })
+        );
       } else {
-        const empty = document.createElement("span");
-        empty.textContent = "Sin datos · abrir para anotar";
-        mini.appendChild(empty);
+        mini.append(Object.assign(document.createElement("span"), { textContent: "Sin datos · abrir para anotar" }));
       }
       button.append(title, mini);
       button.addEventListener("click", () => openMonth(state.viewYear, key));
       grid.appendChild(button);
     });
+  }
+
+  function addInvoiceRows(box, title, rows, indent) {
+    if (!rows.length) return;
+    const h = document.createElement("div");
+    h.className = indent ? "invoice-row indent" : "invoice-row";
+    h.style.color = "var(--faint)";
+    h.textContent = title;
+    box.appendChild(h);
+    rows.filter((row) => Number(row.amount) > 0).forEach((row) => {
+      const line = document.createElement("div");
+      line.className = "invoice-row indent";
+      const left = document.createElement("span");
+      left.textContent = row.name || row.label || "Sin nombre";
+      const right = document.createElement("span");
+      right.textContent = money(row.amount);
+      line.append(left, right);
+      box.appendChild(line);
+    });
+  }
+
+  function renderInvoice() {
+    const box = document.getElementById("invoice");
+    box.replaceChildren();
+    const totals = yearTotals(state.viewYear);
+    const head = document.createElement("div");
+    head.className = "invoice-head";
+    const left = document.createElement("div");
+    const brand = document.createElement("div");
+    brand.className = "brand-line";
+    brand.textContent = "Norte · Flujo personal";
+    const title = document.createElement("h2");
+    title.textContent = `Factura ${state.viewYear}`;
+    const who = document.createElement("p");
+    who.textContent = state.profile.name ? `A nombre de ${state.profile.name}` : "Sin nombre";
+    left.append(brand, title, who);
+    const right = document.createElement("div");
+    right.style.textAlign = "right";
+    const stamp = document.createElement("p");
+    stamp.className = "faint";
+    stamp.textContent = "Resumen del año";
+    const big = document.createElement("strong");
+    big.style.fontFamily = "var(--serif)";
+    big.style.fontSize = "1.6rem";
+    big.textContent = money(totals.balance);
+    right.append(stamp, big);
+    head.append(left, right);
+    box.appendChild(head);
+
+    let any = false;
+    MONTHS.forEach((name, index) => {
+      const entry = getMonth(state.viewYear, monthKey(index), false);
+      if (!monthHasData(entry)) return;
+      any = true;
+      const t = monthTotals(entry);
+      const block = document.createElement("section");
+      block.className = "invoice-month";
+      const h3 = document.createElement("h3");
+      h3.textContent = name;
+      block.appendChild(h3);
+      addInvoiceRows(block, "Ingresos", entry.incomes || []);
+      addInvoiceRows(block, "Egresos", (entry.expenses || []).map((row) => ({
+        name: `${row.name || "Gasto"} · ${categoryById(row.category).label}`,
+        amount: row.amount
+      })));
+      addInvoiceRows(block, "Ahorros", (entry.contributions || []).map((row) => ({
+        name: (state.savings.find((s) => s.id === row.savingId) || {}).name || "Ahorro",
+        amount: row.amount
+      })));
+      addInvoiceRows(block, "Inversiones", (entry.investments || []).map((row) => ({
+        name: (state.investments.find((s) => s.id === row.investmentId) || {}).name || "Inversión",
+        amount: row.amount
+      })));
+      const sub = document.createElement("div");
+      sub.className = "invoice-row total";
+      sub.append(
+        Object.assign(document.createElement("span"), { textContent: `Balance ${name}` }),
+        Object.assign(document.createElement("span"), { textContent: money(t.balance) })
+      );
+      block.appendChild(sub);
+      box.appendChild(block);
+    });
+
+    if (!any) {
+      const empty = document.createElement("p");
+      empty.className = "invoice-empty";
+      empty.textContent = "Todavía no hay movimientos este año. Anótalos en la pestaña Meses.";
+      box.appendChild(empty);
+      return;
+    }
+
+    const foot = document.createElement("section");
+    foot.className = "invoice-foot";
+    [
+      ["Ingresos", totals.income],
+      ["Egresos", totals.egresos],
+      ["Ahorros", totals.ahorros],
+      ["Inversiones", totals.inversiones],
+      ["Balance del año", totals.balance]
+    ].forEach(([label, value]) => {
+      const row = document.createElement("div");
+      row.className = "invoice-row total";
+      row.append(
+        Object.assign(document.createElement("span"), { textContent: label }),
+        Object.assign(document.createElement("span"), { textContent: money(value) })
+      );
+      foot.appendChild(row);
+    });
+    box.appendChild(foot);
   }
 
   function renderIncomes() {
@@ -392,23 +558,19 @@
     entry.incomes.forEach((row, index) => {
       const wrap = document.createElement("div");
       wrap.className = "row";
-      const name = makeInput(row.name, (input) => {
-        row.name = input.value;
-      }, { type: "text", placeholder: "Concepto", "aria-label": "Concepto de ingreso" });
-      const amount = makeInput(row.amount || "", (input) => {
-        row.amount = Number.parseFloat(input.value) || 0;
-        renderMonthTotals();
-      }, { type: "number", min: "0", step: "any", placeholder: "0" });
-      wrap.append(name, amount, removeButton(() => {
-        if (entry.incomes.length === 1) {
-          row.name = "";
-          row.amount = 0;
-        } else {
-          entry.incomes.splice(index, 1);
-        }
-        renderIncomes();
-        renderMonthTotals();
-      }));
+      wrap.append(
+        makeInput(row.name, (input) => { row.name = input.value; }, { type: "text", placeholder: "Concepto" }),
+        makeInput(row.amount || "", (input) => {
+          row.amount = Number.parseFloat(input.value) || 0;
+          renderMonthTotals();
+        }, { type: "number", min: "0", step: "any", placeholder: "0" }),
+        removeButton(() => {
+          if (entry.incomes.length === 1) { row.name = ""; row.amount = 0; }
+          else entry.incomes.splice(index, 1);
+          renderIncomes();
+          renderMonthTotals();
+        })
+      );
       box.appendChild(wrap);
     });
   }
@@ -420,9 +582,6 @@
     entry.expenses.forEach((row, index) => {
       const wrap = document.createElement("div");
       wrap.className = "row expense";
-      const name = makeInput(row.name, (input) => {
-        row.name = input.value;
-      }, { type: "text", placeholder: "Concepto" });
       const select = document.createElement("select");
       CATEGORIES.forEach((category) => {
         const option = document.createElement("option");
@@ -435,61 +594,77 @@
         row.category = select.value;
         renderMonthTotals();
       });
-      const amount = makeInput(row.amount || "", (input) => {
-        row.amount = Number.parseFloat(input.value) || 0;
-        renderMonthTotals();
-      }, { type: "number", min: "0", step: "any", placeholder: "0" });
-      wrap.append(name, select, amount, removeButton(() => {
-        if (entry.expenses.length === 1) {
-          row.name = "";
-          row.amount = 0;
-          row.category = "vivienda";
-        } else {
-          entry.expenses.splice(index, 1);
-        }
-        renderExpenses();
-        renderMonthTotals();
-      }));
+      wrap.append(
+        makeInput(row.name, (input) => { row.name = input.value; }, { type: "text", placeholder: "Concepto" }),
+        select,
+        makeInput(row.amount || "", (input) => {
+          row.amount = Number.parseFloat(input.value) || 0;
+          renderMonthTotals();
+        }, { type: "number", min: "0", step: "any", placeholder: "0" }),
+        removeButton(() => {
+          if (entry.expenses.length === 1) {
+            row.name = ""; row.amount = 0; row.category = "vivienda";
+          } else entry.expenses.splice(index, 1);
+          renderExpenses();
+          renderMonthTotals();
+        })
+      );
+      box.appendChild(wrap);
+    });
+  }
+
+  function renderLinkedRows(kind) {
+    const isSaving = kind === "saving";
+    const box = document.getElementById(isSaving ? "contrib-rows" : "placement-rows");
+    const hint = document.getElementById(isSaving ? "contrib-hint" : "invest-hint");
+    const entry = currentMonth();
+    const pots = isSaving ? state.savings : state.investments;
+    const field = isSaving ? "contributions" : "investments";
+    const idKey = isSaving ? "savingId" : "investmentId";
+    box.replaceChildren();
+    if (!pots.length) {
+      hint.textContent = isSaving
+        ? "Crea un ahorro en Recopilado y vuelve a este mes para aportar."
+        : "Crea una inversión en Recopilado y vuelve a este mes para aportar.";
+      return;
+    }
+    hint.textContent = "Elige el fondo y el monto. Se resta del mes y se suma al acumulado.";
+    if (!entry[field]) entry[field] = [];
+    entry[field].forEach((row, index) => {
+      const wrap = document.createElement("div");
+      wrap.className = "row contrib";
+      const select = document.createElement("select");
+      pots.forEach((pot) => {
+        const option = document.createElement("option");
+        option.value = pot.id;
+        option.textContent = pot.name || "Sin nombre";
+        if (pot.id === row[idKey]) option.selected = true;
+        select.appendChild(option);
+      });
+      if (!row[idKey] && pots[0]) row[idKey] = pots[0].id;
+      select.addEventListener("change", () => { row[idKey] = select.value; });
+      wrap.append(
+        select,
+        makeInput(row.amount || "", (input) => {
+          row.amount = Number.parseFloat(input.value) || 0;
+          renderMonthTotals();
+        }, { type: "number", min: "0", step: "any", placeholder: "0" }),
+        removeButton(() => {
+          entry[field].splice(index, 1);
+          renderLinkedRows(kind);
+          renderMonthTotals();
+        })
+      );
       box.appendChild(wrap);
     });
   }
 
   function renderContribs() {
-    const box = document.getElementById("contrib-rows");
-    const hint = document.getElementById("contrib-hint");
-    const entry = currentMonth();
-    box.replaceChildren();
-    if (!state.savings.length) {
-      hint.textContent = "Primero crea un ahorro en el recopilado. Luego vuelve a este mes y registra el aporte.";
-      return;
-    }
-    hint.textContent = "Elige el ahorro y el monto. Se resta del mes y se suma al acumulado.";
-    entry.contributions.forEach((row, index) => {
-      const wrap = document.createElement("div");
-      wrap.className = "row contrib";
-      const select = document.createElement("select");
-      state.savings.forEach((saving) => {
-        const option = document.createElement("option");
-        option.value = saving.id;
-        option.textContent = saving.name || "Sin nombre";
-        if (saving.id === row.savingId) option.selected = true;
-        select.appendChild(option);
-      });
-      if (!row.savingId && state.savings[0]) row.savingId = state.savings[0].id;
-      select.addEventListener("change", () => {
-        row.savingId = select.value;
-      });
-      const amount = makeInput(row.amount || "", (input) => {
-        row.amount = Number.parseFloat(input.value) || 0;
-        renderMonthTotals();
-      }, { type: "number", min: "0", step: "any", placeholder: "0" });
-      wrap.append(select, amount, removeButton(() => {
-        entry.contributions.splice(index, 1);
-        renderContribs();
-        renderMonthTotals();
-      }));
-      box.appendChild(wrap);
-    });
+    renderLinkedRows("saving");
+  }
+
+  function renderPlacements() {
+    renderLinkedRows("investment");
   }
 
   function renderMonthTotals() {
@@ -498,34 +673,35 @@
     document.getElementById("income-total").textContent = money(t.income);
     document.getElementById("expense-total").textContent = money(t.expense);
     document.getElementById("contrib-total").textContent = money(t.contrib);
+    document.getElementById("placement-total").textContent = money(t.invest);
     const byCategory = CATEGORIES.map((category) => ({
       ...category,
       value: (entry.expenses || [])
         .filter((row) => categoryById(row.category).id === category.id)
         .reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
     })).filter((item) => item.value > 0);
-    const top = [...byCategory].sort((a, b) => b.value - a.value)[0];
     document.getElementById("month-metrics").replaceChildren(
       metric("Balance del mes", money(t.balance), "Ingresos − egresos − aportes", t.balance >= 0 ? "positive" : "negative"),
-      metric("Ingresos", money(t.income), `${(entry.incomes || []).filter((row) => row.amount > 0).length} partidas`),
-      metric("Egresos", money(t.expense), top ? `Mayor: ${top.label}` : "Sin egresos"),
-      metric("Ahorrado este mes", money(t.contrib), "Va al acumulado de cada ahorro")
+      metric("Ingresos", money(t.income), ""),
+      metric("Ahorrado", money(t.contrib), "Va a tus ahorros"),
+      metric("Invertido", money(t.invest), "Va a tus inversiones")
     );
     NorteCharts.donutChart(document.getElementById("month-donut"), byCategory, {
       centerLabel: "Egresos",
       centerValue: money(t.expense),
-      empty: "Añade egresos para ver la composición"
+      empty: "Añade egresos para ver la composición",
+      format: money
     });
   }
 
   function renderMonth() {
     const { year, month } = state.openMonth;
-    const idx = Number(month) - 1;
-    document.getElementById("month-title").textContent = `${MONTHS[idx]} ${year}`;
+    document.getElementById("month-title").textContent = `${MONTHS[Number(month) - 1]} ${year}`;
     notesInput.value = currentMonth().notes || "";
     renderIncomes();
     renderExpenses();
     renderContribs();
+    renderPlacements();
     renderMonthTotals();
   }
 
@@ -546,6 +722,7 @@
       profile: { ...state.profile },
       viewYear: state.viewYear,
       savings: state.savings.map((row) => ({ ...row })),
+      investments: state.investments.map((row) => ({ ...row })),
       years: JSON.parse(JSON.stringify(state.years))
     };
   }
@@ -555,11 +732,8 @@
     if (data.years) {
       state.profile = { name: (data.profile && data.profile.name) || "" };
       state.viewYear = Number(data.viewYear) || state.viewYear;
-      state.savings = Array.isArray(data.savings) ? data.savings.map((row) => ({
-        id: row.id || uid(),
-        name: row.name || "",
-        target: Number(row.target) || 0
-      })) : [];
+      state.savings = Array.isArray(data.savings) ? data.savings : [];
+      state.investments = Array.isArray(data.investments) ? data.investments : [];
       state.years = data.years;
       state.openMonth = null;
     } else if (data.incomes || data.expenses) {
@@ -568,22 +742,20 @@
       state.profile.name = (data.profile && data.profile.name) || "";
       state.viewYear = Number(year) || state.viewYear;
       state.savings = [];
+      state.investments = [];
       state.years = {
         [year]: {
           months: {
             [month]: {
               notes: (data.profile && data.profile.notes) || "",
               incomes: data.incomes || [],
-              expenses: (data.expenses || []).map((row) => ({
-                ...row,
-                category: categoryById(row.category).id
-              })),
-              contributions: []
+              expenses: data.expenses || [],
+              contributions: [],
+              investments: []
             }
           }
         }
       };
-      state.openMonth = null;
     }
     render();
   }
@@ -591,13 +763,18 @@
   function loadExample() {
     const a = uid();
     const b = uid();
+    const c = uid();
     const year = String(now.getFullYear());
     state.profile = { name: "Ana" };
     state.viewYear = Number(year);
     state.openMonth = null;
+    state.tab = "recopilado";
     state.savings = [
       { id: a, name: "Fondo de emergencia", target: 10000000 },
       { id: b, name: "Viaje", target: 4500000 }
+    ];
+    state.investments = [
+      { id: c, name: "CDT", target: 8000000 }
     ];
     state.years = {
       [year]: {
@@ -608,10 +785,10 @@
             expenses: [
               { id: uid(), name: "Arriendo", category: "vivienda", amount: 1600000 },
               { id: uid(), name: "Mercado", category: "alimentacion", amount: 820000 },
-              { id: uid(), name: "Luz y agua", category: "servicios", amount: 280000 },
-              { id: uid(), name: "Gasolina", category: "vehiculos", amount: 320000 }
+              { id: uid(), name: "Luz y agua", category: "servicios", amount: 280000 }
             ],
-            contributions: [{ id: uid(), savingId: a, amount: 600000 }]
+            contributions: [{ id: uid(), savingId: a, amount: 500000 }],
+            investments: [{ id: uid(), investmentId: c, amount: 400000 }]
           },
           "02": {
             notes: "",
@@ -622,45 +799,31 @@
             expenses: [
               { id: uid(), name: "Arriendo", category: "vivienda", amount: 1600000 },
               { id: uid(), name: "Mercado", category: "alimentacion", amount: 790000 },
-              { id: uid(), name: "SOAT / taller", category: "vehiculos", amount: 410000 },
-              { id: uid(), name: "Curso", category: "educacion", amount: 250000 }
+              { id: uid(), name: "Taller", category: "vehiculos", amount: 410000 }
             ],
-            contributions: [
-              { id: uid(), savingId: a, amount: 700000 },
-              { id: uid(), savingId: b, amount: 300000 }
-            ]
+            contributions: [{ id: uid(), savingId: b, amount: 300000 }],
+            investments: [{ id: uid(), investmentId: c, amount: 500000 }]
           },
           "03": {
-            notes: "Más ahorro al viaje.",
+            notes: "",
             incomes: [{ id: uid(), name: "Salario", amount: 4800000 }],
             expenses: [
               { id: uid(), name: "Arriendo", category: "vivienda", amount: 1600000 },
-              { id: uid(), name: "Mercado", category: "alimentacion", amount: 800000 },
-              { id: uid(), name: "Internet y celular", category: "servicios", amount: 190000 }
+              { id: uid(), name: "Mercado", category: "alimentacion", amount: 800000 }
             ],
-            contributions: [
-              { id: uid(), savingId: a, amount: 500000 },
-              { id: uid(), savingId: b, amount: 400000 }
-            ]
+            contributions: [{ id: uid(), savingId: a, amount: 400000 }],
+            investments: [{ id: uid(), investmentId: c, amount: 400000 }]
           }
         }
       }
     };
-    const prev = String(Number(year) - 1);
-    state.years[prev] = {
-      months: {
-        "11": {
-          notes: "Año anterior.",
-          incomes: [{ id: uid(), name: "Salario", amount: 4500000 }],
-          expenses: [{ id: uid(), name: "Arriendo", category: "vivienda", amount: 1500000 }],
-          contributions: [{ id: uid(), savingId: a, amount: 400000 }]
-        }
-      }
-    };
     render();
-    Norte.toast("Ejemplo cargado: hay dos años y ahorros que se acumulan.");
+    Norte.toast("Ejemplo cargado con ahorros e inversiones.");
   }
 
+  document.querySelectorAll(".overview-tabs [data-tab]").forEach((button) => {
+    button.addEventListener("click", () => setTab(button.dataset.tab));
+  });
   document.getElementById("year-prev").addEventListener("click", () => {
     state.viewYear -= 1;
     ensureYear(state.viewYear);
@@ -671,9 +834,7 @@
     ensureYear(state.viewYear);
     render();
   });
-  nameInput.addEventListener("input", () => {
-    state.profile.name = nameInput.value;
-  });
+  nameInput.addEventListener("input", () => { state.profile.name = nameInput.value; });
   notesInput.addEventListener("input", () => {
     const entry = currentMonth();
     if (entry) entry.notes = notesInput.value;
@@ -681,6 +842,10 @@
   document.getElementById("add-saving").addEventListener("click", () => {
     state.savings.push({ id: uid(), name: "Nuevo ahorro", target: 0 });
     renderSavings();
+  });
+  document.getElementById("add-invest").addEventListener("click", () => {
+    state.investments.push({ id: uid(), name: "Nueva inversión", target: 0 });
+    renderInvestments();
   });
   document.getElementById("add-income").addEventListener("click", () => {
     currentMonth().incomes.push({ id: uid(), name: "", amount: 0 });
@@ -692,15 +857,19 @@
   });
   document.getElementById("add-contrib").addEventListener("click", () => {
     if (!state.savings.length) {
-      Norte.toast("Crea un ahorro en el recopilado primero.", "error");
+      Norte.toast("Crea un ahorro en Recopilado primero.", "error");
       return;
     }
-    currentMonth().contributions.push({
-      id: uid(),
-      savingId: state.savings[0].id,
-      amount: 0
-    });
+    currentMonth().contributions.push({ id: uid(), savingId: state.savings[0].id, amount: 0 });
     renderContribs();
+  });
+  document.getElementById("add-placement").addEventListener("click", () => {
+    if (!state.investments.length) {
+      Norte.toast("Crea una inversión en Recopilado primero.", "error");
+      return;
+    }
+    currentMonth().investments.push({ id: uid(), investmentId: state.investments[0].id, amount: 0 });
+    renderPlacements();
   });
   document.getElementById("btn-back").addEventListener("click", closeMonth);
   document.getElementById("btn-ejemplo").addEventListener("click", loadExample);

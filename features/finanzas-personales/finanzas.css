@@ -56,9 +56,81 @@
   margin-top: 16px;
 }
 
-.savings-panel,
-.months-panel {
-  margin-top: 16px;
+.overview-tabs {
+  margin: 0 0 18px;
+}
+
+.pulse-wrap {
+  overflow: hidden;
+}
+
+.invoice {
+  margin-top: 8px;
+  padding: 32px 28px;
+  background:
+    linear-gradient(180deg, rgba(239, 232, 220, 0.04), rgba(8, 9, 11, 0.2));
+}
+
+.invoice-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line-strong);
+  margin-bottom: 22px;
+}
+
+.invoice-head .brand-line {
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.invoice-head h2 {
+  margin-top: 8px;
+}
+
+.invoice-month {
+  margin-bottom: 22px;
+}
+
+.invoice-month h3 {
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+
+.invoice-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 13px;
+  padding: 4px 0;
+}
+
+.invoice-row.indent {
+  padding-left: 12px;
+  color: var(--muted);
+}
+
+.invoice-row.total {
+  border-top: 1px solid var(--line);
+  margin-top: 6px;
+  padding-top: 8px;
+  font-weight: 500;
+}
+
+.invoice-foot {
+  margin-top: 12px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line-strong);
+}
+
+.invoice-empty {
+  color: var(--faint);
 }
 
 .savings-list {

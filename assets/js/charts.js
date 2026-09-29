@@ -1,5 +1,6 @@
 (() => {
   const NS = "http://www.w3.org/2000/svg";
+  let clipSeq = 0;
 
   function el(name, attrs = {}) {
     const node = document.createElementNS(NS, name);
@@ -13,10 +14,39 @@
     while (svg.firstChild) svg.removeChild(svg.firstChild);
   }
 
+  function ensureTip(wrap) {
+    wrap.querySelectorAll(".chart-tip").forEach((node) => node.remove());
+    const tip = document.createElement("div");
+    tip.className = "chart-tip";
+    wrap.appendChild(tip);
+    return tip;
+  }
+
+  function placeTip(tip, wrap, event) {
+    const wrapBox = wrap.getBoundingClientRect();
+    const tipW = tip.offsetWidth;
+    const tipH = tip.offsetHeight;
+    const localX = event.clientX - wrapBox.left;
+    const localY = event.clientY - wrapBox.top;
+    let leftPos = localX + 16;
+    if (leftPos + tipW > wrapBox.width - 8) leftPos = localX - tipW - 12;
+    leftPos = Math.max(8, Math.min(leftPos, wrapBox.width - tipW - 8));
+    let topPos = localY - tipH - 10;
+    if (topPos < 8) topPos = localY + 14;
+    topPos = Math.max(8, Math.min(topPos, wrapBox.height - tipH - 8));
+    tip.style.left = `${leftPos}px`;
+    tip.style.top = `${topPos}px`;
+    tip.classList.add("is-on");
+  }
+
   function lineChart(svg, series, options = {}) {
     clear(svg);
     const wrap = svg.closest(".chart-wrap") || svg.parentElement;
-    wrap.querySelectorAll(".chart-tip").forEach((node) => node.remove());
+    wrap.querySelectorAll(".chart-tip, .donut-legend").forEach((node) => {
+      if (node.classList.contains("donut-legend")) return;
+      if (node.classList.contains("chart-tip")) node.remove();
+    });
+    wrap.querySelectorAll(":scope > .chart-tip").forEach((node) => node.remove());
 
     const formatY = options.formatY || ((n) => String(n));
     const formatX = options.formatX || ((n) => String(n));
@@ -25,16 +55,18 @@
 
     const minX = Math.min(...all.map((p) => p.x));
     const maxX = Math.max(...all.map((p) => p.x));
-    const maxY = Math.max(...all.map((p) => p.y), 0);
-    const minY = 0;
-    const longest = formatY(maxY);
+    const rawMinY = Math.min(0, ...all.map((p) => p.y));
+    const rawMaxY = Math.max(0, ...all.map((p) => p.y));
+    const minY = rawMinY;
+    const maxY = rawMaxY === rawMinY ? rawMinY + 1 : rawMaxY;
+    const longest = formatY(Math.abs(maxY) > Math.abs(minY) ? maxY : minY);
     const left = Math.min(120, Math.max(72, 18 + longest.length * 7.4));
     const width = 760;
     const height = 320;
-    const pad = { top: 20, right: 20, bottom: 38, left };
+    const pad = { top: 18, right: 44, bottom: 42, left };
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
     svg.setAttribute("role", "img");
-    svg.style.overflow = "visible";
+    svg.style.overflow = "hidden";
 
     const innerW = width - pad.left - pad.right;
     const innerH = height - pad.top - pad.bottom;
@@ -42,6 +74,18 @@
     const spanY = Math.max(maxY - minY, 1);
     const xOf = (x) => pad.left + ((x - minX) / spanX) * innerW;
     const yOf = (y) => pad.top + innerH - ((y - minY) / spanY) * innerH;
+
+    const clipId = `plot-clip-${clipSeq += 1}`;
+    const defs = el("defs");
+    const clip = el("clipPath", { id: clipId });
+    clip.appendChild(el("rect", {
+      x: pad.left,
+      y: pad.top,
+      width: innerW,
+      height: innerH
+    }));
+    defs.appendChild(clip);
+    svg.appendChild(defs);
 
     const grid = el("g", { class: "grid" });
     const ticks = 4;
@@ -76,7 +120,7 @@
       const x = xOf(value);
       const label = el("text", {
         x,
-        y: height - 10,
+        y: height - 12,
         fill: "#6f6960",
         "font-size": "11",
         "text-anchor": "middle",
@@ -87,12 +131,13 @@
     }
     svg.appendChild(grid);
 
+    const plot = el("g", { "clip-path": `url(#${clipId})` });
     series.forEach((item) => {
       if (!item.points.length) return;
       const d = item.points
         .map((point, index) => `${index ? "L" : "M"}${xOf(point.x)} ${yOf(point.y)}`)
         .join(" ");
-      svg.appendChild(
+      plot.appendChild(
         el("path", {
           d,
           fill: "none",
@@ -104,6 +149,7 @@
         })
       );
     });
+    svg.appendChild(plot);
 
     const vline = el("line", {
       y1: pad.top,
@@ -123,10 +169,7 @@
     });
     svg.appendChild(catcher);
 
-    const tip = document.createElement("div");
-    tip.className = "chart-tip";
-    wrap.appendChild(tip);
-
+    const tip = ensureTip(wrap);
     const base = series[0];
     catcher.addEventListener("mousemove", (event) => {
       const box = svg.getBoundingClientRect();
@@ -163,21 +206,7 @@
         row.append(name, value);
         tip.appendChild(row);
       });
-      tip.classList.add("is-on");
-
-      const wrapBox = wrap.getBoundingClientRect();
-      const tipW = tip.offsetWidth;
-      const tipH = tip.offsetHeight;
-      const localX = event.clientX - wrapBox.left;
-      const localY = event.clientY - wrapBox.top;
-      const leftPos = localX + 18 + tipW > wrapBox.width - 8
-        ? localX - tipW - 14
-        : localX + 18;
-      const topPos = localY - tipH - 12 < 8
-        ? localY + 16
-        : localY - tipH - 12;
-      tip.style.left = `${Math.max(8, Math.min(leftPos, wrapBox.width - tipW - 8))}px`;
-      tip.style.top = `${Math.max(8, topPos)}px`;
+      placeTip(tip, wrap, event);
     });
     catcher.addEventListener("mouseleave", () => {
       vline.setAttribute("visibility", "hidden");
@@ -191,19 +220,26 @@
 
   function donutChart(svg, slices, options = {}) {
     clear(svg);
-    const width = 420;
-    const height = 320;
+    const wrap = svg.closest(".chart-wrap") || svg.parentElement;
+    wrap.querySelectorAll(":scope > .chart-tip, :scope > .donut-legend").forEach((node) => node.remove());
+
+    const width = 280;
+    const height = 280;
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.style.overflow = "visible";
     const total = slices.reduce((sum, slice) => sum + Math.max(slice.value, 0), 0);
-    const cx = 118;
-    const cy = 160;
-    const outer = 86;
-    const inner = 54;
+    const cx = width / 2;
+    const cy = height / 2;
+    const outer = 92;
+    const inner = 56;
+    const format = options.format || ((n) => String(n));
+
+    wrap.classList.add("donut-wrap");
 
     if (total <= 0) {
       const empty = el("text", {
-        x: width / 2,
-        y: height / 2,
+        x: cx,
+        y: cy,
         fill: "#6f6960",
         "text-anchor": "middle",
         "font-size": "13",
@@ -214,10 +250,40 @@
       return;
     }
 
+    const tip = ensureTip(wrap);
     let angle = -Math.PI / 2;
-    slices.forEach((slice) => {
-      const portion = Math.max(slice.value, 0) / total;
-      if (portion <= 0) return;
+    const visible = slices.filter((slice) => slice.value > 0);
+
+    function showSlice(slice, event) {
+      const pct = ((slice.value / total) * 100).toFixed(0);
+      tip.replaceChildren();
+      const title = document.createElement("div");
+      title.className = "tip-year";
+      title.textContent = slice.label;
+      const row = document.createElement("div");
+      row.className = "tip-row";
+      const name = document.createElement("span");
+      name.textContent = `${pct}%`;
+      const value = document.createElement("strong");
+      value.textContent = format(slice.value);
+      row.append(name, value);
+      tip.append(title, row);
+      if (event) placeTip(tip, wrap, event);
+      else {
+        tip.style.left = "50%";
+        tip.style.top = "12px";
+        tip.style.transform = "translateX(-50%)";
+        tip.classList.add("is-on");
+      }
+    }
+
+    function hideTip() {
+      tip.classList.remove("is-on");
+      tip.style.transform = "";
+    }
+
+    visible.forEach((slice) => {
+      const portion = slice.value / total;
       const next = angle + portion * Math.PI * 2;
       const large = portion > 0.5 ? 1 : 0;
       const [x1, y1] = polar(cx, cy, outer, angle);
@@ -226,15 +292,19 @@
       const [x4, y4] = polar(cx, cy, inner, angle);
       const path = el("path", {
         d: `M${x1} ${y1} A${outer} ${outer} 0 ${large} 1 ${x2} ${y2} L${x3} ${y3} A${inner} ${inner} 0 ${large} 0 ${x4} ${y4} Z`,
-        fill: slice.color
+        fill: slice.color,
+        class: "donut-slice"
       });
+      path.style.cursor = "pointer";
+      path.addEventListener("mousemove", (event) => showSlice(slice, event));
+      path.addEventListener("mouseleave", hideTip);
       svg.appendChild(path);
       angle = next;
     });
 
     const center = el("text", {
       x: cx,
-      y: cy - 4,
+      y: cy - 6,
       fill: "#efe8dc",
       "text-anchor": "middle",
       "font-size": "13",
@@ -252,37 +322,38 @@
     amount.textContent = options.centerValue || "";
     svg.append(center, amount);
 
-    let legendY = 36;
-    slices.forEach((slice) => {
-      if (slice.value <= 0) return;
-      svg.appendChild(el("rect", { x: 230, y: legendY, width: 10, height: 10, rx: 2, fill: slice.color }));
-      const label = el("text", {
-        x: 248,
-        y: legendY + 9,
-        fill: "#9a9286",
-        "font-size": "12",
-        "font-family": "Outfit, sans-serif"
-      });
+    const legend = document.createElement("div");
+    legend.className = "donut-legend";
+    visible.forEach((slice) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "donut-legend-item";
+      const swatch = document.createElement("i");
+      swatch.style.background = slice.color;
+      const label = document.createElement("span");
       const pct = ((slice.value / total) * 100).toFixed(0);
-      label.textContent = `${slice.label}  ${pct}%`;
-      svg.appendChild(label);
-      legendY += 22;
+      label.textContent = `${slice.label} · ${pct}%`;
+      item.append(swatch, label);
+      item.addEventListener("mouseenter", (event) => showSlice(slice, event));
+      item.addEventListener("mouseleave", hideTip);
+      legend.appendChild(item);
     });
+    wrap.appendChild(legend);
   }
 
   function barsChart(svg, bars, options = {}) {
     clear(svg);
     const width = 520;
-    const height = 220;
+    const height = Math.max(180, 28 + bars.length * 48);
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-    const pad = { top: 12, right: 16, bottom: 28, left: 16 };
+    const pad = { top: 12, right: 16, bottom: 16, left: 16 };
     const max = Math.max(...bars.map((bar) => Math.abs(bar.value)), 1);
     const innerW = width - pad.left - pad.right;
     const rowH = (height - pad.top - pad.bottom) / bars.length;
 
     bars.forEach((bar, index) => {
       const y = pad.top + index * rowH + 10;
-      const w = (Math.abs(bar.value) / max) * (innerW * 0.72);
+      const w = (Math.abs(bar.value) / max) * (innerW * 0.68);
       svg.appendChild(
         el("rect", {
           x: pad.left,

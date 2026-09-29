@@ -433,13 +433,58 @@ p {
 .chart-wrap {
   position: relative;
   min-height: 280px;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .chart-wrap svg {
   width: 100%;
   height: auto;
-  overflow: visible;
+  overflow: hidden;
+  display: block;
+}
+
+.donut-wrap {
+  display: grid;
+  justify-items: center;
+  min-height: 0;
+  padding-bottom: 8px;
+}
+
+.donut-wrap svg {
+  width: min(280px, 100%);
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+.donut-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 12px;
+  max-width: 420px;
+}
+
+.donut-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.donut-legend-item i {
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+}
+
+.donut-legend-item:hover {
+  border-color: var(--gold);
+  color: var(--ink);
 }
 
 .chart-tip {

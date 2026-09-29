@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#08090b">
-  <meta name="description" content="Flujo personal: recopilado anual, meses, ahorros acumulados e ingresos y egresos. Guarda tus datos en un archivo ligero.">
+  <meta name="description" content="Flujo personal: recopilado anual, meses, ahorros, inversiones y factura del año.">
   <title>Flujo personal — Norte</title>
   <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,8 +26,10 @@
     </a>
     <nav class="nav" aria-label="Secciones">
       <a href="../../index.html">Inicio</a>
-      <a href="../inversiones/index.html">Inversiones</a>
       <a href="./index.html" class="is-active">Flujo personal</a>
+      <a href="../inversiones/index.html">Inversiones</a>
+      <a href="../creditos/index.html">Créditos</a>
+      <a href="../pymes/index.html">Pymes</a>
     </nav>
     <div class="topbar-actions">
       <button class="btn btn-ghost" type="button" id="btn-cargar">Cargar datos</button>
@@ -39,9 +41,9 @@
   <main id="contenido" class="page">
     <section id="view-overview">
       <div class="page-head">
-        <p class="kicker"><span></span> 02 · Caja del año</p>
+        <p class="kicker"><span></span> 01 · Caja del año</p>
         <h1>Flujo personal</h1>
-        <p class="lede">Esta es la vista general: el año completo, los ahorros que se van acumulando y los meses para anotar. Entra a un mes para cargar ingresos, egresos y aportes.</p>
+        <p class="lede">Recopilado del año, meses para anotar y una factura con todos los movimientos. Los ahorros e inversiones se acumulan cuando un mes aporta.</p>
       </div>
 
       <div class="year-bar card card-pad">
@@ -60,57 +62,82 @@
         </div>
       </div>
 
-      <div class="metrics" id="year-metrics"></div>
-
-      <div class="overview-grid">
-        <article class="card card-pad">
-          <div class="list-head">
-            <h2>Pulso del año</h2>
-            <p class="faint">Ingresos, egresos y aportes mes a mes</p>
-          </div>
-          <div class="chart-wrap">
-            <svg id="year-chart" aria-label="Gráfica anual de flujo"></svg>
-          </div>
-          <div class="legend">
-            <span><i style="background:#9cbaa4"></i>Ingresos</span>
-            <span><i style="background:#c98970"></i>Egresos</span>
-            <span><i style="background:#d4c4a0"></i>Ahorros</span>
-          </div>
-        </article>
-        <article class="card card-pad">
-          <h2>Egresos del año</h2>
-          <div class="chart-wrap">
-            <svg id="year-donut" aria-label="Egresos por categoría"></svg>
-          </div>
-        </article>
+      <div class="tabs overview-tabs" role="tablist" aria-label="Vistas del año">
+        <button type="button" role="tab" data-tab="recopilado" class="is-active">Recopilado</button>
+        <button type="button" role="tab" data-tab="meses">Meses</button>
+        <button type="button" role="tab" data-tab="factura">Factura</button>
       </div>
 
-      <section class="card card-pad savings-panel">
-        <div class="list-head">
-          <div>
-            <h2>Ahorros</h2>
-            <p class="faint">Se acumulan entre meses y años. Si un mes aporta, aquí suma.</p>
-          </div>
-          <button class="btn" type="button" id="add-saving">Nuevo ahorro</button>
+      <div id="panel-recopilado">
+        <div class="metrics" id="year-metrics"></div>
+        <div class="overview-grid">
+          <article class="card card-pad">
+            <div class="list-head">
+              <h2>Pulso del año</h2>
+              <p class="faint">Mes a mes, dentro de este recuadro</p>
+            </div>
+            <div class="chart-wrap pulse-wrap">
+              <svg id="year-chart" aria-label="Gráfica anual de flujo"></svg>
+            </div>
+            <div class="legend">
+              <span><i style="background:#9cbaa4"></i>Ingresos</span>
+              <span><i style="background:#c98970"></i>Egresos</span>
+              <span><i style="background:#d4c4a0"></i>Ahorros</span>
+              <span><i style="background:#8aa4c4"></i>Inversiones</span>
+            </div>
+          </article>
+          <article class="card card-pad">
+            <h2>Egresos del año</h2>
+            <div class="chart-wrap">
+              <svg id="year-donut" aria-label="Egresos por categoría"></svg>
+            </div>
+          </article>
         </div>
-        <div class="savings-list" id="savings-list"></div>
-      </section>
 
-      <section class="months-panel">
-        <div class="list-head">
-          <h2>Meses de <span id="months-year">2026</span></h2>
-          <p class="faint">Entra a un mes para anotar</p>
-        </div>
-        <div class="month-grid" id="month-grid"></div>
-      </section>
+        <section class="card card-pad savings-panel">
+          <div class="list-head">
+            <div>
+              <h2>Ahorros</h2>
+              <p class="faint">Se acumulan entre meses y años.</p>
+            </div>
+            <button class="btn" type="button" id="add-saving">Nuevo ahorro</button>
+          </div>
+          <div class="savings-list" id="savings-list"></div>
+        </section>
+
+        <section class="card card-pad savings-panel">
+          <div class="list-head">
+            <div>
+              <h2>Inversiones</h2>
+              <p class="faint">Fondos, CDT, acciones… cada aporte mensual suma aquí.</p>
+            </div>
+            <button class="btn" type="button" id="add-invest">Nueva inversión</button>
+          </div>
+          <div class="savings-list" id="invest-list"></div>
+        </section>
+      </div>
+
+      <div id="panel-meses" hidden>
+        <section class="months-panel">
+          <div class="list-head">
+            <h2>Meses de <span id="months-year">2026</span></h2>
+            <p class="faint">Entra a un mes para anotar</p>
+          </div>
+          <div class="month-grid" id="month-grid"></div>
+        </section>
+      </div>
+
+      <div id="panel-factura" hidden>
+        <article class="card invoice" id="invoice"></article>
+      </div>
     </section>
 
     <section id="view-month" hidden>
-      <button class="btn btn-ghost back-btn" type="button" id="btn-back">← Volver al recopilado</button>
+      <button class="btn btn-ghost back-btn" type="button" id="btn-back">← Volver a los meses</button>
       <div class="page-head">
         <p class="kicker"><span></span> Mes</p>
         <h1 id="month-title">Enero 2026</h1>
-        <p class="lede">Anota lo de este mes. Los aportes a ahorros salen del flujo del mes y se suman al ahorro elegido.</p>
+        <p class="lede">Anota lo de este mes. Los aportes a ahorros e inversiones salen del flujo y se suman a cada fondo.</p>
       </div>
 
       <div class="workspace">
@@ -151,8 +178,20 @@
             <p class="faint contrib-hint" id="contrib-hint"></p>
             <div class="rows" id="contrib-rows"></div>
             <div class="list-total">
-              <span class="muted">Total aportado este mes</span>
+              <span class="muted">Total ahorrado este mes</span>
               <strong id="contrib-total">$0</strong>
+            </div>
+          </section>
+          <section class="card card-pad">
+            <div class="list-head">
+              <h2>Aportes a inversiones</h2>
+              <button class="btn" type="button" id="add-placement">Añadir aporte</button>
+            </div>
+            <p class="faint contrib-hint" id="invest-hint"></p>
+            <div class="rows" id="placement-rows"></div>
+            <div class="list-total">
+              <span class="muted">Total invertido este mes</span>
+              <strong id="placement-total">$0</strong>
             </div>
           </section>
         </div>

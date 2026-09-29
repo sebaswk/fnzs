@@ -170,7 +170,7 @@
     title.textContent = "Tus datos no se guardan solos";
 
     const copy = document.createElement("p");
-    copy.textContent = "Esta web no tiene cuenta ni servidor. Para no perder lo que calcules o anotes, usa «Guardar datos»: se descarga un archivo liviano. Cuando vuelvas, pulsa «Cargar datos» y elige ese archivo.";
+    copy.textContent = "Para no perder lo que calcules o anotes, usa «Guardar datos»: se descarga un archivo liviano. Cuando vuelvas, pulsa «Cargar datos» y elige ese archivo.";
 
     const button = document.createElement("button");
     button.type = "button";
