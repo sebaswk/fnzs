@@ -1,14 +1,6 @@
 (() => {
   const FEATURE = "creditos";
   const CURRENCY = "COP";
-  const MONTH_NAMES = [
-    "Ene", "Feb", "Mar", "Abr", "May", "Jun",
-    "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
-  ];
-  const MONTH_FULL = [
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-  ];
 
   function uid() {
     return `n-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -124,8 +116,8 @@
     const rows = [];
     let balance = state.principal;
     let payment = base;
-    const cap = useExtra && state.mode === "plazo" ? months * 3 : months;
-    for (let m = 1; m <= cap && balance > 1; m += 1) {
+      const cap = useExtra && state.mode === "plazo" ? months * 3 : months;
+      for (let m = 1; m <= cap && balance > 1; m += 1) {
       const interest = balance * r;
       const extra = useExtra ? extraAt(m) : 0;
       const scheduled = state.mode === "cuota" && useExtra ? payment : base;
@@ -136,7 +128,6 @@
       rows.push({
         month: m,
         yearIndex: Math.ceil(m / 12),
-        monthName: MONTH_NAMES[(m - 1) % 12],
         interest,
         capital,
         insurance: state.insurance,
@@ -190,42 +181,24 @@
     return td;
   }
 
-  function monthPlain(monthNum) {
-    const month = Math.max(1, Number(monthNum) || 1);
-    const name = MONTH_FULL[(month - 1) % 12];
-    const year = Math.ceil(month / 12);
-    return year > 1
-      ? `${name} del año ${year} (mes ${month} del crédito)`
-      : `${name} (mes ${month} del crédito)`;
-  }
-
   function extraHintText(item) {
     const amount = money(Number(item.amount) || 0);
-    const when = monthPlain(item.month);
+    const month = Math.max(1, Number(item.month) || 1);
     return item.recur === "monthly"
-      ? `${amount} extra cada mes, desde ${when}.`
-      : `${amount} una sola vez, en ${when}.`;
+      ? `${amount} extra cada mes, desde el mes ${month}.`
+      : `${amount} una sola vez, en el mes ${month}.`;
   }
 
   function fillMonthSelect(select, selected) {
     const chosen = Math.max(1, Number(selected) || 1);
     const maxMonth = Math.max(totalMonths(), chosen, 12);
     select.replaceChildren();
-    let year = 0;
-    let group = null;
     for (let month = 1; month <= maxMonth; month += 1) {
-      const yearIndex = Math.ceil(month / 12);
-      if (yearIndex !== year) {
-        year = yearIndex;
-        group = document.createElement("optgroup");
-        group.label = yearIndex === 1 ? "Primer año del crédito" : `Año ${yearIndex} del crédito`;
-        select.appendChild(group);
-      }
       const option = document.createElement("option");
       option.value = String(month);
-      option.textContent = `${MONTH_FULL[(month - 1) % 12]} · mes ${month}`;
+      option.textContent = String(month);
       if (month === chosen) option.selected = true;
-      group.appendChild(option);
+      select.appendChild(option);
     }
   }
 
@@ -280,7 +253,7 @@
       whenField.className = "field";
       const whenLabel = document.createElement("label");
       whenLabel.setAttribute("for", `extra-month-${item.id}`);
-      whenLabel.textContent = "En qué mes del crédito";
+      whenLabel.textContent = "Desde el mes número";
       const month = document.createElement("select");
       month.id = `extra-month-${item.id}`;
       month.className = "extra-month";
@@ -293,7 +266,7 @@
       });
       const whenHint = document.createElement("span");
       whenHint.className = "hint";
-      whenHint.textContent = "Cuenta desde el primer mes del crédito, no el calendario.";
+      whenHint.textContent = "1 es la primera cuota, 2 la segunda, y así.";
       whenField.append(whenLabel, month, whenHint);
 
       const howField = document.createElement("div");
@@ -364,17 +337,15 @@
     monthBody.replaceChildren();
     yearBody.replaceChildren();
     const origByMonth = new Map(original.rows.map((row) => [row.month, row]));
-    const maxLen = Math.max(original.rows.length, boosted.rows.length);
+    const plan = boosted.rows.length ? boosted.rows : original.rows;
     const yearMap = {};
 
-    for (let i = 0; i < maxLen; i += 1) {
-      const withExtra = boosted.rows[i];
-      const plain = origByMonth.get(i + 1) || original.rows[i];
-      if (!withExtra && !plain) continue;
-      const row = withExtra || plain;
+    plan.forEach((withExtra) => {
+      const plain = origByMonth.get(withExtra.month);
+      const row = withExtra;
       const tr = document.createElement("tr");
       tr.append(
-        cell(`${row.month} · ${row.monthName}`),
+        cell(String(row.month)),
         cell(money((withExtra || row).interest)),
         cell(money((withExtra || row).capital)),
         cell(money((withExtra || row).insurance)),
@@ -411,7 +382,7 @@
         bucket.plainInterest += plain.interest;
         bucket.plainBalance = plain.balance;
       }
-    }
+    });
 
     Object.values(yearMap).forEach((bucket) => {
       const tr = document.createElement("tr");
