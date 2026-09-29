@@ -15,8 +15,6 @@
     { id: "educacion", label: "Educación", color: "#b8a1d4" },
     { id: "ocio", label: "Ocio", color: "#e0c07a" },
     { id: "deudas", label: "Deudas", color: "#c47a8a" },
-    { id: "ahorro", label: "Ahorro", color: "#7dcea0" },
-    { id: "inversion", label: "Inversión", color: "#8aa4c4" },
     { id: "otros", label: "Otros", color: "#7a7f8a" }
   ];
 
@@ -71,8 +69,10 @@
   }
 
   function categoryById(id) {
-    const mapped = id === "ahorros" ? "ahorro" : id;
-    return CATEGORIES.find((item) => item.id === mapped) || CATEGORIES.at(-1);
+    if (id === "ahorros" || id === "ahorro" || id === "inversion") {
+      return CATEGORIES.find((item) => item.id === "otros");
+    }
+    return CATEGORIES.find((item) => item.id === id) || CATEGORIES.at(-1);
   }
 
   function ensureYear(year) {
@@ -97,27 +97,19 @@
     return (rows || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
   }
 
-  function categorySum(entry, id) {
-    return (entry && entry.expenses || []).reduce((sum, row) => (
-      categoryById(row.category).id === id ? sum + (Number(row.amount) || 0) : sum
-    ), 0);
-  }
-
   function monthTotals(entry) {
     const income = sumList(entry && entry.incomes);
     const expense = sumList(entry && entry.expenses);
     const contrib = sumList(entry && entry.contributions);
     const invest = sumList(entry && entry.investments);
-    const catAhorro = categorySum(entry, "ahorro");
-    const catInvest = categorySum(entry, "inversion");
     return {
       income,
       expense,
       contrib,
       invest,
-      egresos: Math.max(0, expense - catAhorro - catInvest),
-      ahorros: contrib + catAhorro,
-      inversiones: invest + catInvest,
+      egresos: expense,
+      ahorros: contrib,
+      inversiones: invest,
       balance: income - expense - contrib - invest
     };
   }
@@ -163,21 +155,38 @@
     return total;
   }
 
-  function yearCategories(year) {
-    const y = state.years[String(year)];
+  function expenseSlices(expenses, contrib, invest) {
     const map = {};
-    if (y) {
-      Object.values(y.months).forEach((entry) => {
-        (entry.expenses || []).forEach((row) => {
-          const cat = categoryById(row.category).id;
-          map[cat] = (map[cat] || 0) + (Number(row.amount) || 0);
-        });
-      });
-    }
-    return CATEGORIES.map((category) => ({
+    (expenses || []).forEach((row) => {
+      const cat = categoryById(row.category).id;
+      map[cat] = (map[cat] || 0) + (Number(row.amount) || 0);
+    });
+    const slices = CATEGORIES.map((category) => ({
       ...category,
       value: map[category.id] || 0
-    })).filter((item) => item.value > 0);
+    }));
+    if (contrib > 0) {
+      slices.push({ id: "aportes-ahorro", label: "Aportes a ahorros", color: "#7dcea0", value: contrib });
+    }
+    if (invest > 0) {
+      slices.push({ id: "aportes-inversion", label: "Aportes a inversiones", color: "#8aa4c4", value: invest });
+    }
+    return slices.filter((item) => item.value > 0);
+  }
+
+  function yearOutflowSlices(year) {
+    const y = state.years[String(year)];
+    const expenses = [];
+    let contrib = 0;
+    let invest = 0;
+    if (y) {
+      Object.values(y.months).forEach((entry) => {
+        (entry.expenses || []).forEach((row) => expenses.push(row));
+        contrib += sumList(entry.contributions);
+        invest += sumList(entry.investments);
+      });
+    }
+    return expenseSlices(expenses, contrib, invest);
   }
 
   function metric(label, value, sub, extraClass) {
@@ -311,11 +320,10 @@
       formatX: (value) => MONTHS[Math.max(0, Math.round(value) - 1)].slice(0, 3)
     });
 
-    const slices = yearCategories(state.viewYear);
-    NorteCharts.donutChart(document.getElementById("year-donut"), slices, {
-      centerLabel: "Egresos",
-      centerValue: money(totals.expense),
-      empty: "Aún no hay egresos este año",
+    NorteCharts.donutChart(document.getElementById("year-donut"), yearOutflowSlices(state.viewYear), {
+      centerLabel: "Salidas",
+      centerValue: money(totals.expense + totals.contrib + totals.invest),
+      empty: "Aún no hay egresos ni aportes este año",
       format: money
     });
 
@@ -674,22 +682,17 @@
     document.getElementById("expense-total").textContent = money(t.expense);
     document.getElementById("contrib-total").textContent = money(t.contrib);
     document.getElementById("placement-total").textContent = money(t.invest);
-    const byCategory = CATEGORIES.map((category) => ({
-      ...category,
-      value: (entry.expenses || [])
-        .filter((row) => categoryById(row.category).id === category.id)
-        .reduce((sum, row) => sum + (Number(row.amount) || 0), 0)
-    })).filter((item) => item.value > 0);
+    const slices = expenseSlices(entry.expenses, t.contrib, t.invest);
     document.getElementById("month-metrics").replaceChildren(
       metric("Balance del mes", money(t.balance), "Ingresos − egresos − aportes", t.balance >= 0 ? "positive" : "negative"),
       metric("Ingresos", money(t.income), ""),
       metric("Ahorrado", money(t.contrib), "Va a tus ahorros"),
       metric("Invertido", money(t.invest), "Va a tus inversiones")
     );
-    NorteCharts.donutChart(document.getElementById("month-donut"), byCategory, {
-      centerLabel: "Egresos",
-      centerValue: money(t.expense),
-      empty: "Añade egresos para ver la composición",
+    NorteCharts.donutChart(document.getElementById("month-donut"), slices, {
+      centerLabel: "Salidas",
+      centerValue: money(t.expense + t.contrib + t.invest),
+      empty: "Añade egresos o aportes para ver la composición",
       format: money
     });
   }

@@ -54,6 +54,11 @@
   grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
   gap: 16px;
   margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.savings-panel {
+  margin-top: 22px;
 }
 
 .overview-tabs {

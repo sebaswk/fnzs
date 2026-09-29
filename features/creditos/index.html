@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#08090b">
-  <meta name="description" content="Calculadora de créditos: cuota, seguros y abonos a capital para reducir cuotas o tiempo.">
+  <meta name="description" content="Calculadora de créditos: cuota real, seguros, plazo en meses o años, y abonos esporádicos o mensuales.">
   <title>Créditos — Norte</title>
   <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,6 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../assets/css/base.css">
   <link rel="stylesheet" href="../inversiones/inversiones.css">
+  <link rel="stylesheet" href="creditos.css">
 </head>
 <body>
   <a class="skip" href="#contenido">Saltar al contenido</a>
@@ -43,7 +44,7 @@
       <div>
         <p class="kicker"><span></span> 03 · Deuda</p>
         <h1>Créditos</h1>
-        <p class="lede">Calcula la cuota con interés y seguros. Si haces abonos a capital, mira si te conviene bajar la cuota o acortar el tiempo.</p>
+        <p class="lede">Pon la cuota que realmente pagas y el plazo en meses o años. La tasa se acomoda a esa cuota. Luego pruebas abonos sueltos o mensuales y comparas en tablas.</p>
       </div>
     </div>
 
@@ -59,17 +60,13 @@
               </div>
             </div>
             <div class="field">
-              <label for="rate">Interés anual</label>
-              <div class="input-suffix">
-                <input id="rate" type="number" min="0" max="100" step="0.01" required>
-                <em>%</em>
-              </div>
-            </div>
-            <div class="field">
-              <label for="years">Plazo</label>
-              <div class="input-suffix">
-                <input id="years" type="number" min="1" max="40" step="1" required>
-                <em>años</em>
+              <label for="term">Plazo</label>
+              <div class="term-row">
+                <input id="term" type="number" min="1" step="1" required>
+                <div class="tabs" role="tablist" aria-label="Unidad del plazo">
+                  <button type="button" id="unit-months">Meses</button>
+                  <button type="button" id="unit-years" class="is-active">Años</button>
+                </div>
               </div>
             </div>
             <div class="field">
@@ -78,64 +75,129 @@
                 <input id="insurance" type="number" min="0" step="any">
                 <em>COP</em>
               </div>
-              <span class="hint">Vida, desempleo u otros. Se suman a cada cuota.</span>
+            </div>
+            <div class="field">
+              <label for="actual">Cuota + seguros que pagas</label>
+              <div class="input-suffix">
+                <input id="actual" type="number" min="0" step="any">
+                <em>COP</em>
+              </div>
+              <span class="hint">La tasa se ajusta para que coincida con este pago.</span>
+            </div>
+            <div class="field">
+              <label for="rate">Tasa anual resultante</label>
+              <div class="input-suffix">
+                <input id="rate" type="number" min="0" max="200" step="0.01">
+                <em>%</em>
+              </div>
+              <span class="hint" id="rate-hint">Si no pones la cuota real, puedes escribir la tasa a mano.</span>
             </div>
           </form>
         </section>
+
         <section class="card card-pad">
-          <h2 style="margin-bottom: 14px;">Abonos a capital</h2>
-          <form class="form-grid" id="extra-form">
-            <div class="field">
-              <label for="extra">Abono extra mensual</label>
-              <div class="input-suffix">
-                <input id="extra" type="number" min="0" step="any">
-                <em>COP</em>
-              </div>
+          <div class="list-head" style="margin-bottom: 12px;">
+            <div>
+              <h2>Abonos a capital</h2>
+              <p class="faint">Únicos o todos los meses desde un mes.</p>
             </div>
-            <div class="field">
-              <label for="extra-from">Desde el mes</label>
-              <input id="extra-from" type="number" min="1" step="1" value="1">
+          </div>
+          <div class="extra-rows" id="extra-rows"></div>
+          <button class="btn" type="button" id="add-extra">Añadir abono</button>
+          <div class="field" style="margin-top: 16px;">
+            <label>Con los abonos quieres reducir</label>
+            <div class="tabs" role="tablist">
+              <button type="button" id="mode-plazo" class="is-active">Tiempo</button>
+              <button type="button" id="mode-cuota">Cuota</button>
             </div>
-            <div class="field">
-              <label>Qué quieres reducir</label>
-              <div class="tabs" role="tablist">
-                <button type="button" id="mode-plazo" class="is-active">Tiempo</button>
-                <button type="button" id="mode-cuota">Cuota</button>
-              </div>
-              <span class="hint" id="mode-hint">La cuota se mantiene y el crédito termina antes.</span>
-            </div>
-          </form>
+            <span class="hint" id="mode-hint">La cuota se mantiene y el crédito termina antes.</span>
+          </div>
         </section>
       </aside>
 
       <section class="results">
-        <div class="metrics" id="metrics"></div>
-        <article class="card card-pad">
-          <div class="year-title">
-            <h2>Saldo restante</h2>
-            <p class="faint">Con y sin abonos</p>
-          </div>
-          <div class="chart-wrap">
-            <svg id="balance-chart" aria-label="Saldo del crédito en el tiempo"></svg>
-          </div>
-          <div class="legend">
-            <span><i style="background:#c98970"></i>Sin abonos</span>
-            <span><i style="background:#9cbaa4"></i>Con abonos</span>
-          </div>
-        </article>
-        <article class="card card-pad">
-          <div class="year-title">
-            <h2>Intereses frente a capital</h2>
-            <p class="faint">Año a año, con el plan de abonos</p>
-          </div>
-          <div class="chart-wrap">
-            <svg id="mix-chart" aria-label="Intereses y capital por año"></svg>
-          </div>
-          <div class="legend">
-            <span><i style="background:#c98970"></i>Intereses</span>
-            <span><i style="background:#d4c4a0"></i>Capital</span>
-          </div>
-        </article>
+        <div class="tabs credit-tabs" role="tablist" aria-label="Vistas del crédito">
+          <button type="button" data-tab="recopilado" class="is-active">Recopilado</button>
+          <button type="button" data-tab="meses">Meses</button>
+          <button type="button" data-tab="anos">Años</button>
+        </div>
+
+        <div id="panel-recopilado">
+          <div class="metrics" id="metrics"></div>
+          <article class="card card-pad">
+            <div class="year-title">
+              <h2>Saldo restante</h2>
+              <p class="faint">Con y sin abonos</p>
+            </div>
+            <div class="chart-wrap">
+              <svg id="balance-chart" aria-label="Saldo del crédito en el tiempo"></svg>
+            </div>
+            <div class="legend">
+              <span><i style="background:#c98970"></i>Sin abonos</span>
+              <span><i style="background:#9cbaa4"></i>Con abonos</span>
+            </div>
+          </article>
+          <article class="card card-pad" style="margin-top: 16px;">
+            <div class="year-title">
+              <h2>Intereses frente a capital</h2>
+              <p class="faint">Año a año, con abonos</p>
+            </div>
+            <div class="chart-wrap">
+              <svg id="mix-chart" aria-label="Intereses y capital por año"></svg>
+            </div>
+            <div class="legend">
+              <span><i style="background:#c98970"></i>Intereses</span>
+              <span><i style="background:#d4c4a0"></i>Capital</span>
+            </div>
+          </article>
+        </div>
+
+        <div id="panel-meses" hidden>
+          <article class="card card-pad">
+            <p class="faint compare-note">Cada fila es un mes. Compara el plan original con el que incluye tus abonos.</p>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Mes</th>
+                    <th>Interés</th>
+                    <th>Capital</th>
+                    <th>Seguro</th>
+                    <th>Abono</th>
+                    <th>Pago</th>
+                    <th>Saldo</th>
+                    <th>Saldo sin abonos</th>
+                  </tr>
+                </thead>
+                <tbody id="month-body"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+
+        <div id="panel-anos" hidden>
+          <article class="card card-pad">
+            <p class="faint compare-note">Totales de cada año para ver el efecto de los abonos de un vistazo.</p>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Año</th>
+                    <th>Intereses</th>
+                    <th>Capital</th>
+                    <th>Abonos</th>
+                    <th>Seguros</th>
+                    <th>Pagado</th>
+                    <th>Saldo</th>
+                    <th>Intereses sin abonos</th>
+                    <th>Saldo sin abonos</th>
+                  </tr>
+                </thead>
+                <tbody id="year-body"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
       </section>
     </div>
   </main>
