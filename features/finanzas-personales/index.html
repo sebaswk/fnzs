@@ -57,6 +57,10 @@
           <span class="bank-label">Banco</span>
           <div class="year-chips" id="bank-chips" aria-label="Filtro por banco"></div>
           <button class="btn btn-ghost" type="button" id="btn-manage-banks">Bancos</button>
+          <div class="usd-rate-field" title="Convierte inversiones en dólares a pesos en el consolidado">
+            <label for="usd-rate">USD → COP</label>
+            <input id="usd-rate" type="number" min="0" step="0.01" placeholder="0" inputmode="decimal">
+          </div>
         </div>
         <div class="year-tools">
           <div class="field">
@@ -215,6 +219,18 @@
               <strong id="placement-total">$0</strong>
             </div>
           </section>
+          <section class="card card-pad">
+            <div class="list-head">
+              <h2>Transferencias entre bancos</h2>
+              <button class="btn" type="button" id="add-transfer">Añadir transferencia</button>
+            </div>
+            <p class="faint contrib-hint">Mueve dinero de un banco a otro (por ejemplo, para fondear una inversión). Opcionalmente enlázala a un producto del banco destino.</p>
+            <div class="rows" id="transfer-rows"></div>
+            <div class="list-total">
+              <span class="muted">Neto transferido (este banco)</span>
+              <strong id="transfer-total">$0</strong>
+            </div>
+          </section>
         </div>
         <aside class="stack">
           <div class="metrics" id="month-metrics"></div>
@@ -239,6 +255,26 @@
         <div class="stack" id="invest-form"></div>
         <aside class="stack">
           <div class="metrics" id="invest-metrics"></div>
+          <article class="card card-pad" id="invest-charts" hidden>
+            <div class="list-head">
+              <h2>Gráficas</h2>
+              <p class="faint">Distribución entre posiciones y rendimiento de cada una</p>
+            </div>
+            <div class="invest-charts-grid">
+              <div>
+                <p class="chart-caption">Distribución (disponible)</p>
+                <div class="chart-wrap">
+                  <svg id="invest-donut" aria-label="Distribución de posiciones"></svg>
+                </div>
+              </div>
+              <div>
+                <p class="chart-caption">Rendimiento por posición</p>
+                <div class="chart-wrap">
+                  <svg id="invest-bars" aria-label="Rendimiento por posición"></svg>
+                </div>
+              </div>
+            </div>
+          </article>
           <article class="card card-pad">
             <div class="list-head">
               <h2>Tabla mes a mes</h2>
