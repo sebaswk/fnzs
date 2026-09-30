@@ -1,6 +1,7 @@
 (() => {
   const FEATURE = "finanzas-personales";
   const CURRENCY = "COP";
+  const DEFAULT_TAX_PCT = 4;
   const MONTHS = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
@@ -16,6 +17,22 @@
     { id: "ocio", label: "Ocio", color: "#e0c07a" },
     { id: "deudas", label: "Deudas", color: "#c47a8a" },
     { id: "otros", label: "Otros", color: "#7a7f8a" }
+  ];
+  const INVEST_TYPES = [
+    { id: "cdt", label: "CDT" },
+    { id: "alta_rentabilidad", label: "Cuenta de alta rentabilidad" },
+    { id: "bolsa", label: "Bolsa" }
+  ];
+  const BOLSA_KINDS = [
+    { id: "etf", label: "ETF" },
+    { id: "acciones", label: "Acciones" },
+    { id: "cripto", label: "Cripto" }
+  ];
+  const ACCOUNT_TYPES = [
+    { id: "ahorros", label: "Cuenta de ahorros" },
+    { id: "corriente", label: "Cuenta corriente" },
+    { id: "efectivo", label: "Efectivo" },
+    { id: "otro", label: "Otro" }
   ];
 
   function uid() {
@@ -40,7 +57,90 @@
     if (!entry) return emptyMonth();
     if (!Array.isArray(entry.investments)) entry.investments = [];
     if (!Array.isArray(entry.contributions)) entry.contributions = [];
+    entry.contributions.forEach((row) => {
+      if (typeof row.concept !== "string") row.concept = "";
+      if (row.kind !== "retiro") row.kind = "aporte";
+    });
+    entry.investments.forEach((row) => {
+      if (typeof row.concept !== "string") row.concept = "";
+    });
     return entry;
+  }
+
+  function normalizeSaving(row) {
+    return {
+      id: row.id || uid(),
+      name: row.name || "Ahorro",
+      target: Number(row.target) || 0,
+      bankId: row.bankId || "",
+      initialAmount: Number(row.initialAmount) || 0
+    };
+  }
+
+  function normalizeHolding(row) {
+    return {
+      id: row.id || uid(),
+      kind: BOLSA_KINDS.some((k) => k.id === row.kind) ? row.kind : "etf",
+      name: row.name || "",
+      invested: Number(row.invested) || 0,
+      available: Number(row.available) || 0,
+      commission: Number(row.commission) || 0,
+      returns: Number(row.returns) || 0,
+      movements: Array.isArray(row.movements)
+        ? row.movements.map((m) => ({
+          id: m.id || uid(),
+          year: Number(m.year) || new Date().getFullYear(),
+          month: m.month || "01",
+          amount: Number(m.amount) || 0,
+          concept: m.concept || ""
+        }))
+        : []
+    };
+  }
+
+  function normalizeInvestment(row) {
+    let type = row.type;
+    if (type === "general") type = "bolsa";
+    if (!INVEST_TYPES.some((t) => t.id === type)) type = "cdt";
+    const interestRatePct = row.interestRatePct != null
+      ? Number(row.interestRatePct) || 0
+      : (Number(row.interestAmount) && Number(row.initialAmount)
+        ? (Number(row.interestAmount) / Number(row.initialAmount)) * (12 / Math.max(1, Number(row.termMonths) || 12)) * 100
+        : 0);
+    return {
+      id: row.id || uid(),
+      name: row.name || "Producto",
+      type,
+      bankId: row.bankId || "",
+      initialAmount: Number(row.initialAmount) || 0,
+      openYear: Number(row.openYear) || new Date().getFullYear(),
+      openMonth: row.openMonth || "01",
+      interestRatePct,
+      taxPct: row.taxPct == null ? DEFAULT_TAX_PCT : Number(row.taxPct),
+      annualYieldPct: Number(row.annualYieldPct) || 0,
+      termMonths: Math.max(1, Number(row.termMonths) || 12),
+      holdings: Array.isArray(row.holdings) ? row.holdings.map(normalizeHolding) : []
+    };
+  }
+
+  function normalizeAccount(row) {
+    return {
+      id: row.id || uid(),
+      name: row.name || "Cuenta",
+      bankId: row.bankId || "",
+      type: ACCOUNT_TYPES.some((t) => t.id === row.type) ? row.type : "ahorros",
+      openingBalance: Number(row.openingBalance) || 0,
+      openingYear: Number(row.openingYear) || new Date().getFullYear(),
+      openingMonth: row.openingMonth || monthKey(new Date().getMonth()),
+      notes: row.notes || ""
+    };
+  }
+
+  function normalizeBank(row) {
+    return {
+      id: row.id || uid(),
+      name: row.name || "Banco"
+    };
   }
 
   const now = new Date();
@@ -48,7 +148,11 @@
     profile: { name: "" },
     viewYear: now.getFullYear(),
     openMonth: null,
+    openInvestId: null,
     tab: "recopilado",
+    bankFilter: "all",
+    banks: [],
+    accounts: [],
     savings: [],
     investments: [],
     years: {}
@@ -56,11 +160,14 @@
 
   const overview = document.getElementById("view-overview");
   const monthView = document.getElementById("view-month");
+  const investView = document.getElementById("view-invest");
   const nameInput = document.getElementById("nombre");
   const notesInput = document.getElementById("month-notes");
+  const banksModal = document.getElementById("banks-modal");
   const panels = {
     recopilado: document.getElementById("panel-recopilado"),
     meses: document.getElementById("panel-meses"),
+    patrimonio: document.getElementById("panel-patrimonio"),
     factura: document.getElementById("panel-factura")
   };
 
@@ -73,6 +180,22 @@
       return CATEGORIES.find((item) => item.id === "otros");
     }
     return CATEGORIES.find((item) => item.id === id) || CATEGORIES.at(-1);
+  }
+
+  function investTypeLabel(type) {
+    return (INVEST_TYPES.find((item) => item.id === type) || INVEST_TYPES[0]).label;
+  }
+
+  function bankName(id) {
+    if (!id) return "Sin banco";
+    const bank = state.banks.find((item) => item.id === id);
+    return bank ? bank.name : "Sin banco";
+  }
+
+  function matchesBank(bankId) {
+    if (state.bankFilter === "all") return true;
+    if (state.bankFilter === "none") return !bankId;
+    return bankId === state.bankFilter;
   }
 
   function ensureYear(year) {
@@ -97,20 +220,33 @@
     return (rows || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
   }
 
+  function contribSigned(row) {
+    const amount = Math.abs(Number(row.amount) || 0);
+    return row.kind === "retiro" ? -amount : amount;
+  }
+
+  function sumContribs(rows) {
+    return (rows || []).reduce((sum, row) => sum + contribSigned(row), 0);
+  }
+
   function monthTotals(entry) {
     const income = sumList(entry && entry.incomes);
     const expense = sumList(entry && entry.expenses);
-    const contrib = sumList(entry && entry.contributions);
+    const contrib = sumContribs(entry && entry.contributions);
     const invest = sumList(entry && entry.investments);
+    const aportes = Math.max(contrib, 0);
+    const retiros = Math.max(-contrib, 0);
     return {
       income,
       expense,
       contrib,
+      aportes,
+      retiros,
       invest,
       egresos: expense,
       ahorros: contrib,
       inversiones: invest,
-      balance: income - expense - contrib - invest
+      balance: income - expense - Math.max(contrib, 0) - invest + Math.max(-contrib, 0)
     };
   }
 
@@ -118,7 +254,7 @@
     const y = state.years[String(year)];
     const acc = {
       income: 0, expense: 0, contrib: 0, invest: 0,
-      egresos: 0, ahorros: 0, inversiones: 0, balance: 0
+      egresos: 0, ahorros: 0, inversiones: 0, balance: 0, aportes: 0, retiros: 0
     };
     if (!y) return acc;
     Object.values(y.months).forEach((entry) => {
@@ -130,29 +266,89 @@
       acc.egresos += t.egresos;
       acc.ahorros += t.ahorros;
       acc.inversiones += t.inversiones;
+      acc.aportes += t.aportes;
+      acc.retiros += t.retiros;
     });
-    acc.balance = acc.income - acc.expense - acc.contrib - acc.invest;
+    acc.balance = acc.income - acc.expense - acc.aportes - acc.invest + acc.retiros;
     return acc;
   }
 
   function allYearsList() {
     const keys = Object.keys(state.years).map(Number);
     keys.push(state.viewYear);
-    return [...new Set(keys)].sort((a, b) => a - b);
+    state.accounts.forEach((acc) => keys.push(acc.openingYear));
+    state.investments.forEach((inv) => keys.push(inv.openYear));
+    return [...new Set(keys)].filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
   }
 
-  function potTotal(kind, id) {
+  function potFlow(kind, id, untilYear) {
     const field = kind === "saving" ? "contributions" : "investments";
     const key = kind === "saving" ? "savingId" : "investmentId";
     let total = 0;
-    Object.values(state.years).forEach((year) => {
+    Object.entries(state.years).forEach(([yearKey, year]) => {
+      if (untilYear != null && Number(yearKey) > untilYear) return;
       Object.values(year.months || {}).forEach((entry) => {
         (entry[field] || []).forEach((row) => {
-          if (row[key] === id) total += Number(row.amount) || 0;
+          if (row[key] !== id) return;
+          total += kind === "saving" ? contribSigned(row) : (Number(row.amount) || 0);
         });
       });
     });
     return total;
+  }
+
+  function potTotal(kind, id) {
+    const pot = kind === "saving"
+      ? state.savings.find((item) => item.id === id)
+      : state.investments.find((item) => item.id === id);
+    if (kind === "investment" && pot && pot.type === "bolsa") {
+      return bolsaTotals(pot).invested;
+    }
+    const initial = pot ? (Number(pot.initialAmount) || 0) : 0;
+    return initial + potFlow(kind, id);
+  }
+
+  function potTotalUntil(kind, id, untilYear) {
+    const pot = kind === "saving"
+      ? state.savings.find((item) => item.id === id)
+      : state.investments.find((item) => item.id === id);
+    if (kind === "investment" && pot && pot.type === "bolsa") {
+      const holdings = pot.holdings || [];
+      return holdings.reduce((acc, h) => {
+        const base = Number(h.invested) || 0;
+        const moves = (h.movements || [])
+          .filter((m) => Number(m.year) <= untilYear)
+          .reduce((s, m) => s + (Number(m.amount) || 0), 0);
+        return acc + base + moves;
+      }, 0);
+    }
+    const initial = pot ? (Number(pot.initialAmount) || 0) : 0;
+    return initial + potFlow(kind, id, untilYear);
+  }
+
+  function carryInTotals(year) {
+    const prev = year - 1;
+    let savings = 0;
+    let investments = 0;
+    state.savings.filter((s) => matchesBank(s.bankId)).forEach((s) => {
+      savings += potTotalUntil("saving", s.id, prev);
+    });
+    state.investments.filter((s) => matchesBank(s.bankId)).forEach((s) => {
+      investments += potTotalUntil("investment", s.id, prev);
+    });
+    return { savings, investments, total: savings + investments };
+  }
+
+  function filteredAccounts() {
+    return state.accounts.filter((acc) => matchesBank(acc.bankId));
+  }
+
+  function patrimonioTotal() {
+    return filteredAccounts().reduce((sum, acc) => sum + (Number(acc.openingBalance) || 0), 0);
+  }
+
+  function patrimonioVisibleInYear(year) {
+    return filteredAccounts().filter((acc) => Number(acc.openingYear) <= year);
   }
 
   function expenseSlices(expenses, contrib, invest) {
@@ -182,7 +378,7 @@
     if (y) {
       Object.values(y.months).forEach((entry) => {
         (entry.expenses || []).forEach((row) => expenses.push(row));
-        contrib += sumList(entry.contributions);
+        contrib += Math.max(sumContribs(entry.contributions), 0);
         invest += sumList(entry.investments);
       });
     }
@@ -210,10 +406,34 @@
 
   function makeInput(value, onChange, attrs = {}) {
     const input = document.createElement("input");
-    input.value = value;
+    input.value = value == null ? "" : value;
     Object.entries(attrs).forEach(([key, val]) => input.setAttribute(key, val));
     input.addEventListener("input", () => onChange(input));
     return input;
+  }
+
+  function makeSelect(value, options, onChange) {
+    const select = document.createElement("select");
+    options.forEach((opt) => {
+      const option = document.createElement("option");
+      option.value = opt.value;
+      option.textContent = opt.label;
+      if (String(opt.value) === String(value)) option.selected = true;
+      select.appendChild(option);
+    });
+    select.addEventListener("change", () => onChange(select.value));
+    return select;
+  }
+
+  function bankOptions(includeEmpty) {
+    const opts = [];
+    if (includeEmpty) opts.push({ value: "", label: "Sin banco" });
+    state.banks.forEach((bank) => opts.push({ value: bank.id, label: bank.name }));
+    return opts;
+  }
+
+  function monthOptions() {
+    return MONTHS.map((name, index) => ({ value: monthKey(index), label: name }));
   }
 
   function removeButton(onClick) {
@@ -229,12 +449,13 @@
   function monthHasData(entry) {
     if (!entry) return false;
     const t = monthTotals(entry);
-    return t.income > 0 || t.expense > 0 || t.contrib > 0 || t.invest > 0;
+    return t.income > 0 || t.expense > 0 || t.contrib !== 0 || t.invest > 0;
   }
 
   function setView(mode) {
     overview.hidden = mode !== "overview";
     monthView.hidden = mode !== "month";
+    investView.hidden = mode !== "invest";
   }
 
   function setTab(tab) {
@@ -247,6 +468,7 @@
     });
     if (tab === "factura") renderInvoice();
     if (tab === "meses") renderMonthGrid();
+    if (tab === "patrimonio") renderPatrimonio();
     if (tab === "recopilado") {
       renderSavings();
       renderInvestments();
@@ -256,6 +478,7 @@
   function openMonth(year, key) {
     state.viewYear = Number(year);
     state.openMonth = { year: Number(year), month: key };
+    state.openInvestId = null;
     getMonth(year, key, true);
     if (location.hash !== `#${year}-${key}`) location.hash = `${year}-${key}`;
     render();
@@ -265,6 +488,19 @@
     state.openMonth = null;
     state.tab = "meses";
     if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+    render();
+  }
+
+  function openInvest(id) {
+    state.openInvestId = id;
+    state.openMonth = null;
+    if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+    render();
+  }
+
+  function closeInvest() {
+    state.openInvestId = null;
+    state.tab = "recopilado";
     render();
   }
 
@@ -289,20 +525,97 @@
         state.viewYear = year;
         ensureYear(year);
         if (state.openMonth) closeMonth();
+        else if (state.openInvestId) closeInvest();
         else render();
       });
       chips.appendChild(button);
+    });
+    renderBankChips();
+  }
+
+  function renderBankChips() {
+    const box = document.getElementById("bank-chips");
+    box.replaceChildren();
+    const filters = [
+      { id: "all", label: "Todos" },
+      ...state.banks.map((bank) => ({ id: bank.id, label: bank.name })),
+      { id: "none", label: "Sin banco" }
+    ];
+    filters.forEach((filter) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `chip${state.bankFilter === filter.id ? " is-active" : ""}`;
+      button.textContent = filter.label;
+      button.addEventListener("click", () => {
+        state.bankFilter = filter.id;
+        render();
+      });
+      box.appendChild(button);
+    });
+  }
+
+  function renderBanksModal() {
+    const box = document.getElementById("banks-list");
+    box.replaceChildren();
+    if (!state.banks.length) {
+      const p = document.createElement("p");
+      p.className = "empty-note";
+      p.textContent = "Añade Bancolombia, Nequi, Davivienda… para filtrar patrimonio, ahorros e inversiones.";
+      box.appendChild(p);
+      return;
+    }
+    state.banks.forEach((bank, index) => {
+      const card = document.createElement("article");
+      card.className = "saving-card bank-card";
+      const nameField = document.createElement("div");
+      nameField.className = "field";
+      const label = document.createElement("label");
+      label.textContent = "Nombre del banco";
+      nameField.append(
+        label,
+        makeInput(bank.name, (input) => {
+          bank.name = input.value;
+          renderBankChips();
+        }, { type: "text", placeholder: "Bancolombia" })
+      );
+      card.append(nameField, removeButton(() => {
+        const id = bank.id;
+        state.banks.splice(index, 1);
+        state.accounts.forEach((acc) => { if (acc.bankId === id) acc.bankId = ""; });
+        state.savings.forEach((s) => { if (s.bankId === id) s.bankId = ""; });
+        state.investments.forEach((s) => { if (s.bankId === id) s.bankId = ""; });
+        if (state.bankFilter === id) state.bankFilter = "all";
+        renderBanksModal();
+        render();
+      }));
+      box.appendChild(card);
     });
   }
 
   function renderOverview() {
     const totals = yearTotals(state.viewYear);
+    const carry = carryInTotals(state.viewYear);
+    const patrimonio = patrimonioVisibleInYear(state.viewYear)
+      .reduce((sum, acc) => sum + (Number(acc.openingBalance) || 0), 0);
     const rate = totals.income > 0 ? ((totals.income - totals.expense) / totals.income) * 100 : 0;
+    const filterNote = state.bankFilter === "all"
+      ? "Todos los bancos"
+      : state.bankFilter === "none"
+        ? "Sin banco asignado"
+        : bankName(state.bankFilter);
+
     document.getElementById("year-metrics").replaceChildren(
+      metric("Patrimonio registrado", money(patrimonio), `${filterNote} · no es ingreso del mes`),
       metric("Ingresos del año", money(totals.income), `${state.viewYear}`),
       metric("Egresos del año", money(totals.egresos), "Gastos del día a día"),
-      metric("Ahorros e inversiones", money(totals.ahorros + totals.inversiones), `Ahorros ${money(totals.ahorros)} · Inversiones ${money(totals.inversiones)}`),
-      metric("Balance del año", money(totals.balance), `Tasa de ahorro ${Norte.formatPct(rate)}`, totals.balance >= 0 ? "positive" : "negative")
+      metric(
+        "Ahorros e inversiones",
+        money(totals.ahorros + totals.inversiones),
+        carry.total > 0
+          ? `Arrastre ${money(carry.total)} · año ${money(totals.ahorros + totals.inversiones)}`
+          : `Ahorros ${money(totals.ahorros)} · Inv. ${money(totals.inversiones)}`
+      ),
+      metric("Balance del flujo", money(totals.balance), `Tasa de ahorro ${Norte.formatPct(rate)}`, totals.balance >= 0 ? "positive" : "negative")
     );
 
     const points = MONTHS.map((name, index) => {
@@ -322,7 +635,7 @@
 
     NorteCharts.donutChart(document.getElementById("year-donut"), yearOutflowSlices(state.viewYear), {
       centerLabel: "Salidas",
-      centerValue: money(totals.expense + totals.contrib + totals.invest),
+      centerValue: money(totals.expense + totals.aportes + totals.invest),
       empty: "Aún no hay egresos ni aportes este año",
       format: money
     });
@@ -330,79 +643,99 @@
     renderSavings();
     renderInvestments();
     renderMonthGrid();
+    renderPatrimonio();
     renderInvoice();
     setTab(state.tab);
   }
 
-  function renderPots(kind) {
-    const list = kind === "saving" ? state.savings : state.investments;
-    const box = document.getElementById(kind === "saving" ? "savings-list" : "invest-list");
-    const emptyText = kind === "saving"
-      ? "Crea un ahorro y luego aporta desde cada mes. El total se acumula."
-      : "Crea una inversión (CDT, fondo, acciones…) y aporta mes a mes.";
+  function renderSavings() {
+    const list = state.savings.filter((s) => matchesBank(s.bankId));
+    const box = document.getElementById("savings-list");
     box.replaceChildren();
     if (!list.length) {
       const p = document.createElement("p");
       p.className = "empty-note";
-      p.textContent = emptyText;
+      p.textContent = state.savings.length
+        ? "No hay ahorros para este filtro de banco."
+        : "Crea un ahorro con saldo inicial (lo que ya tienes) y aporta o retira desde cada mes con concepto.";
       box.appendChild(p);
       return;
     }
-    list.forEach((pot, index) => {
+    list.forEach((pot) => {
+      const index = state.savings.findIndex((item) => item.id === pot.id);
       const card = document.createElement("article");
-      card.className = "saving-card";
+      card.className = "saving-card saving-card-rich";
+
       const nameField = document.createElement("div");
       nameField.className = "field";
-      const nameLabel = document.createElement("label");
-      nameLabel.textContent = "Nombre";
-      const name = makeInput(pot.name, (input) => {
-        pot.name = input.value;
-        if (state.openMonth) {
-          renderContribs();
-          renderPlacements();
-        }
-      }, { type: "text", placeholder: kind === "saving" ? "Fondo de emergencia" : "CDT o fondo" });
-      nameField.append(nameLabel, name);
+      nameField.append(
+        Object.assign(document.createElement("label"), { textContent: "Nombre" }),
+        makeInput(pot.name, (input) => {
+          pot.name = input.value;
+          if (state.openMonth) renderContribs();
+        }, { type: "text", placeholder: "Vehículos / Emergencia" })
+      );
 
-      const total = potTotal(kind, pot.id);
+      const bankField = document.createElement("div");
+      bankField.className = "field";
+      bankField.append(
+        Object.assign(document.createElement("label"), { textContent: "Banco" }),
+        makeSelect(pot.bankId || "", bankOptions(true), (value) => {
+          pot.bankId = value;
+          render();
+        })
+      );
+
+      const initialField = document.createElement("div");
+      initialField.className = "field";
+      initialField.append(
+        Object.assign(document.createElement("label"), { textContent: "Saldo inicial" }),
+        makeInput(pot.initialAmount || "", (input) => {
+          pot.initialAmount = Number.parseFloat(input.value) || 0;
+          renderSavings();
+        }, { type: "number", min: "0", step: "any", placeholder: "0" })
+      );
+
       const targetField = document.createElement("div");
       targetField.className = "field";
-      const targetLabel = document.createElement("label");
-      targetLabel.textContent = "Meta (opcional)";
+      targetField.append(
+        Object.assign(document.createElement("label"), { textContent: "Meta" }),
+        makeInput(pot.target || "", (input) => {
+          pot.target = Number.parseFloat(input.value) || 0;
+          renderSavings();
+        }, { type: "number", min: "0", step: "any", placeholder: "0" })
+      );
+
+      const total = potTotal("saving", pot.id);
+      const carry = potTotalUntil("saving", pot.id, state.viewYear - 1);
       const done = document.createElement("div");
       done.className = "field";
-      const doneLabel = document.createElement("label");
-      doneLabel.textContent = "Acumulado";
       const strong = document.createElement("strong");
       strong.textContent = money(total);
       const meta = document.createElement("div");
       meta.className = "saving-meta";
+      meta.textContent = carry > 0
+        ? `Arrastre ${money(carry)} · total acumulado`
+        : (pot.target ? `${Norte.formatPct(Math.min((total / pot.target) * 100, 999))} de la meta` : "Sin meta");
+      done.append(
+        Object.assign(document.createElement("label"), { textContent: "Acumulado" }),
+        strong,
+        meta
+      );
+
       const bar = document.createElement("div");
       bar.className = "progress";
       const fill = document.createElement("span");
-      const paint = () => {
-        meta.textContent = pot.target
-          ? `${Norte.formatPct(Math.min((total / pot.target) * 100, 999))} de la meta`
-          : "Sin meta definida";
-        fill.style.width = pot.target ? `${Math.min(100, (total / pot.target) * 100)}%` : (total > 0 ? "100%" : "0%");
-      };
-      const target = makeInput(pot.target || "", (input) => {
-        pot.target = Number.parseFloat(input.value) || 0;
-        paint();
-      }, { type: "number", min: "0", step: "any", placeholder: "0" });
-      targetField.append(targetLabel, target);
-      paint();
-      done.append(doneLabel, strong, meta);
+      fill.style.width = pot.target
+        ? `${Math.min(100, (total / pot.target) * 100)}%`
+        : (total > 0 ? "100%" : "0%");
       bar.appendChild(fill);
-      card.append(nameField, targetField, done, removeButton(() => {
-        list.splice(index, 1);
+
+      card.append(nameField, bankField, initialField, targetField, done, removeButton(() => {
+        state.savings.splice(index, 1);
         Object.values(state.years).forEach((year) => {
           Object.values(year.months || {}).forEach((entry) => {
-            if (kind === "saving") {
-              entry.contributions = (entry.contributions || []).filter((row) => row.savingId !== pot.id);
-            } else {
-              entry.investments = (entry.investments || []).filter((row) => row.investmentId !== pot.id);
-            }
+            entry.contributions = (entry.contributions || []).filter((row) => row.savingId !== pot.id);
           });
         });
         render();
@@ -411,12 +744,688 @@
     });
   }
 
-  function renderSavings() {
-    renderPots("saving");
+  function renderInvestments() {
+    const list = state.investments.filter((s) => matchesBank(s.bankId));
+    const box = document.getElementById("invest-list");
+    box.replaceChildren();
+    if (!list.length) {
+      const p = document.createElement("p");
+      p.className = "empty-note";
+      p.textContent = state.investments.length
+        ? "No hay productos para este filtro de banco."
+        : "Crea un producto (fondo, CDT o alta rentabilidad) e indica el capital que ya tienes invertido.";
+      box.appendChild(p);
+      return;
+    }
+    list.forEach((pot) => {
+      const index = state.investments.findIndex((item) => item.id === pot.id);
+      const card = document.createElement("article");
+      card.className = "invest-card";
+      const total = potTotal("investment", pot.id);
+      const snapshot = investmentSnapshot(pot);
+
+      const top = document.createElement("div");
+      top.className = "invest-card-top";
+      const title = document.createElement("div");
+      const h3 = document.createElement("h3");
+      h3.textContent = pot.name || "Sin nombre";
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.textContent = investTypeLabel(pot.type);
+      const sub = document.createElement("p");
+      sub.className = "faint";
+      sub.textContent = `${bankName(pot.bankId)} · capital ${money(total)}`;
+      title.append(h3, badge, sub);
+
+      const openBtn = document.createElement("button");
+      openBtn.type = "button";
+      openBtn.className = "btn";
+      openBtn.textContent = "Abrir";
+      openBtn.addEventListener("click", () => openInvest(pot.id));
+
+      top.append(title, openBtn);
+
+      const mini = document.createElement("div");
+      mini.className = "invest-mini";
+      [
+        ["Invertido", money(snapshot.invested)],
+        ["Disponible", money(snapshot.available)],
+        ["Rendimientos", money(snapshot.returns)]
+      ].forEach(([label, value]) => {
+        const cell = document.createElement("div");
+        cell.innerHTML = `<span class="muted">${label}</span><strong>${value}</strong>`;
+        mini.appendChild(cell);
+      });
+
+      card.append(top, mini, removeButton(() => {
+        state.investments.splice(index, 1);
+        Object.values(state.years).forEach((year) => {
+          Object.values(year.months || {}).forEach((entry) => {
+            entry.investments = (entry.investments || []).filter((row) => row.investmentId !== pot.id);
+          });
+        });
+        if (state.openInvestId === pot.id) state.openInvestId = null;
+        render();
+      }));
+      box.appendChild(card);
+    });
   }
 
-  function renderInvestments() {
-    renderPots("investment");
+  function investmentSnapshot(pot) {
+    if (pot.type === "bolsa") {
+      return bolsaTotals(pot);
+    }
+    const rows = buildInvestSchedule(pot);
+    const last = rows.at(-1) || {
+      invested: Number(pot.initialAmount) || 0,
+      commission: 0,
+      available: Number(pot.initialAmount) || 0,
+      returns: 0
+    };
+    return last;
+  }
+
+  function bolsaTotals(pot) {
+    const holdings = pot.holdings || [];
+    return holdings.reduce((acc, h) => {
+      const moveSum = (h.movements || []).reduce((s, m) => s + (Number(m.amount) || 0), 0);
+      acc.invested += (Number(h.invested) || 0) + moveSum;
+      acc.available += Number(h.available) || 0;
+      acc.commission += Number(h.commission) || 0;
+      acc.returns += Number(h.returns) || 0;
+      return acc;
+    }, { invested: 0, available: 0, commission: 0, returns: 0 });
+  }
+
+  function ymIndex(year, month) {
+    return Number(year) * 12 + (Number(month) - 1);
+  }
+
+  function cdtGrossInterest(pot) {
+    const capital = Number(pot.initialAmount) || 0;
+    const rate = (Number(pot.interestRatePct) || 0) / 100;
+    const term = Math.max(1, Number(pot.termMonths) || 12);
+    return capital * rate * (term / 12);
+  }
+
+  function buildInvestSchedule(pot) {
+    const start = ymIndex(pot.openYear, pot.openMonth);
+    const endYear = Math.max(state.viewYear, pot.openYear, now.getFullYear());
+    const end = ymIndex(endYear, 12);
+    const monthsCount = Math.max(1, end - start + 1);
+    const rows = [];
+
+    if (pot.type === "cdt") {
+      const capital = Number(pot.initialAmount) || 0;
+      const grossInterest = cdtGrossInterest(pot);
+      const tax = grossInterest * ((Number(pot.taxPct) || 0) / 100);
+      const netInterest = grossInterest - tax;
+      const term = Math.max(1, Number(pot.termMonths) || 12);
+      for (let i = 0; i < term; i += 1) {
+        const absolute = start + i;
+        const year = Math.floor(absolute / 12);
+        const month = (absolute % 12) + 1;
+        const progress = (i + 1) / term;
+        const accrued = netInterest * progress;
+        rows.push({
+          year,
+          month: monthKey(month - 1),
+          label: `${MONTHS[month - 1]} ${year}`,
+          invested: capital,
+          commission: 0,
+          available: capital + accrued,
+          returns: accrued,
+          note: i === term - 1
+            ? `Interés bruto ${money(grossInterest)} · ${Norte.formatPct(pot.interestRatePct)} EA · impuesto ${Norte.formatPct(pot.taxPct)}`
+            : ""
+        });
+      }
+      return rows;
+    }
+
+    if (pot.type === "alta_rentabilidad") {
+      const monthlyRate = ((Number(pot.annualYieldPct) || 0) / 100) / 12;
+      let balance = Number(pot.initialAmount) || 0;
+      let contributed = balance;
+      let returns = 0;
+      for (let i = 0; i < monthsCount; i += 1) {
+        const absolute = start + i;
+        const year = Math.floor(absolute / 12);
+        const month = (absolute % 12) + 1;
+        const key = monthKey(month - 1);
+        const entry = getMonth(year, key, false);
+        const add = (entry && (entry.investments || [])
+          .filter((row) => row.investmentId === pot.id)
+          .reduce((sum, row) => sum + (Number(row.amount) || 0), 0)) || 0;
+        const interest = balance * monthlyRate;
+        balance += interest + add;
+        contributed += add;
+        returns += interest;
+        rows.push({
+          year,
+          month: key,
+          label: `${MONTHS[month - 1]} ${year}`,
+          invested: contributed,
+          commission: 0,
+          available: balance,
+          returns,
+          note: `Rendimiento mes ${money(interest)}${add ? ` · aporte ${money(add)}` : ""}`
+        });
+      }
+      return rows;
+    }
+
+    // bolsa: one row per holding (+ movements summary)
+    (pot.holdings || []).forEach((h) => {
+      const moveSum = (h.movements || []).reduce((s, m) => s + (Number(m.amount) || 0), 0);
+      const kindLabel = (BOLSA_KINDS.find((k) => k.id === h.kind) || BOLSA_KINDS[0]).label;
+      rows.push({
+        year: pot.openYear,
+        month: pot.openMonth,
+        label: `${kindLabel}${h.name ? ` · ${h.name}` : ""}`,
+        invested: (Number(h.invested) || 0) + moveSum,
+        commission: Number(h.commission) || 0,
+        available: Number(h.available) || 0,
+        returns: Number(h.returns) || 0,
+        note: (h.movements || []).length
+          ? `${(h.movements || []).length} aporte(s) irregulares`
+          : ""
+      });
+    });
+    return rows;
+  }
+
+  function updateInvestSide(pot) {
+    const schedule = buildInvestSchedule(pot);
+    const last = pot.type === "bolsa"
+      ? bolsaTotals(pot)
+      : (schedule.at(-1) || { invested: 0, commission: 0, available: 0, returns: 0 });
+
+    const commissionSub = pot.type === "bolsa"
+      ? "Valor fijo por posición"
+      : "Sin comisión en este producto";
+
+    document.getElementById("invest-metrics").replaceChildren(
+      metric("Dinero invertido", money(last.invested), pot.type === "bolsa" ? "Capital + aportes por posición" : "Capital + aportes"),
+      metric("Comisión", money(last.commission), commissionSub),
+      metric("Dinero disponible", money(last.available), pot.type === "bolsa" ? "Según cada posición" : "Capital + rendimientos netos"),
+      metric("Rendimientos", money(last.returns), pot.type === "cdt"
+        ? `${Norte.formatPct(pot.interestRatePct)} · impuesto ${Norte.formatPct(pot.taxPct)}`
+        : pot.type === "alta_rentabilidad"
+          ? `${Norte.formatPct(pot.annualYieldPct, 2)} anual`
+          : "Por posición en bolsa")
+    );
+
+    const head = document.getElementById("invest-table-head");
+    const body = document.getElementById("invest-table-body");
+    head.replaceChildren();
+    body.replaceChildren();
+    const hr = document.createElement("tr");
+    const cols = pot.type === "bolsa"
+      ? ["Posición", "Invertido", "Comisión", "Disponible", "Rendimientos"]
+      : ["Mes", "Invertido", "Comisión", "Disponible", "Rendimientos"];
+    cols.forEach((text) => {
+      const th = document.createElement("th");
+      th.textContent = text;
+      hr.appendChild(th);
+    });
+    head.appendChild(hr);
+
+    if (!schedule.length) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 5;
+      td.style.textAlign = "left";
+      td.textContent = pot.type === "bolsa"
+        ? "Añade un ETF, acción o cripto para ver el detalle."
+        : "Sin proyección todavía.";
+      tr.appendChild(td);
+      body.appendChild(tr);
+      return;
+    }
+
+    schedule.forEach((row) => {
+      const tr = document.createElement("tr");
+      [row.label, money(row.invested), money(row.commission), money(row.available), money(row.returns)]
+        .forEach((text, idx) => {
+          const td = document.createElement("td");
+          td.textContent = text;
+          if (idx === 0) td.style.textAlign = "left";
+          tr.appendChild(td);
+        });
+      body.appendChild(tr);
+    });
+  }
+
+  function moneyField(value, onChange) {
+    return makeInput(value === 0 || value ? value : "", (input) => {
+      const raw = input.value;
+      const parsed = Number.parseFloat(raw);
+      onChange(Number.isFinite(parsed) ? parsed : 0, input);
+    }, { type: "number", min: "0", step: "any", placeholder: "0", inputmode: "decimal" });
+  }
+
+  function pctField(value, onChange) {
+    return makeInput(value === 0 || value ? value : "", (input) => {
+      const parsed = Number.parseFloat(input.value);
+      onChange(Number.isFinite(parsed) ? parsed : 0, input);
+    }, { type: "number", min: "0", step: "0.01", placeholder: "0", inputmode: "decimal" });
+  }
+
+  function renderBolsaHoldings(pot, container) {
+    const section = document.createElement("section");
+    section.className = "card card-pad holdings-panel";
+    const head = document.createElement("div");
+    head.className = "list-head";
+    const titleWrap = document.createElement("div");
+    titleWrap.append(
+      Object.assign(document.createElement("h2"), { textContent: "Posiciones en bolsa" }),
+      Object.assign(document.createElement("p"), {
+        className: "faint",
+        textContent: "ETF, acciones o cripto. Comisión en pesos. Aportes mes a mes cuando quieras."
+      })
+    );
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "btn";
+    addBtn.textContent = "Nueva posición";
+    addBtn.addEventListener("click", () => {
+      pot.holdings.push(normalizeHolding({ kind: "etf", name: "" }));
+      renderInvestDetail();
+    });
+    head.append(titleWrap, addBtn);
+    section.appendChild(head);
+
+    if (!pot.holdings.length) {
+      const empty = document.createElement("p");
+      empty.className = "empty-note";
+      empty.textContent = "Crea una posición (por ejemplo un ETF) y registra cuánto tienes y los aportes irregulares.";
+      section.appendChild(empty);
+      container.appendChild(section);
+      return;
+    }
+
+    pot.holdings.forEach((holding, hIndex) => {
+      const card = document.createElement("article");
+      card.className = "holding-card";
+
+      const grid = document.createElement("div");
+      grid.className = "holding-grid";
+
+      const kindField = document.createElement("div");
+      kindField.className = "field";
+      kindField.append(
+        Object.assign(document.createElement("label"), { textContent: "Tipo" }),
+        makeSelect(holding.kind, BOLSA_KINDS.map((k) => ({ value: k.id, label: k.label })), (value) => {
+          holding.kind = value;
+          renderInvestDetail();
+        })
+      );
+
+      const nameField = document.createElement("div");
+      nameField.className = "field";
+      nameField.append(
+        Object.assign(document.createElement("label"), {
+          textContent: holding.kind === "etf" ? "Nombre del ETF" : holding.kind === "cripto" ? "Cripto" : "Acción"
+        }),
+        makeInput(holding.name, (input) => {
+          holding.name = input.value;
+          updateInvestSide(pot);
+        }, { type: "text", placeholder: holding.kind === "etf" ? "VOO / QQQ…" : "Nombre" })
+      );
+
+      const investedField = document.createElement("div");
+      investedField.className = "field field-money";
+      investedField.append(
+        Object.assign(document.createElement("label"), { textContent: "Dinero invertido" }),
+        moneyField(holding.invested, (val) => {
+          holding.invested = val;
+          updateInvestSide(pot);
+        })
+      );
+
+      const availableField = document.createElement("div");
+      availableField.className = "field field-money";
+      availableField.append(
+        Object.assign(document.createElement("label"), { textContent: "Dinero disponible" }),
+        moneyField(holding.available, (val) => {
+          holding.available = val;
+          updateInvestSide(pot);
+        })
+      );
+
+      const commissionField = document.createElement("div");
+      commissionField.className = "field field-money";
+      commissionField.append(
+        Object.assign(document.createElement("label"), { textContent: "Comisión (valor)" }),
+        moneyField(holding.commission, (val) => {
+          holding.commission = val;
+          updateInvestSide(pot);
+        })
+      );
+
+      const returnsField = document.createElement("div");
+      returnsField.className = "field field-money";
+      returnsField.append(
+        Object.assign(document.createElement("label"), { textContent: "Rendimientos" }),
+        moneyField(holding.returns, (val) => {
+          holding.returns = val;
+          updateInvestSide(pot);
+        })
+      );
+
+      grid.append(kindField, nameField, investedField, availableField, commissionField, returnsField);
+      card.append(grid, removeButton(() => {
+        pot.holdings.splice(hIndex, 1);
+        renderInvestDetail();
+      }));
+
+      const moves = document.createElement("div");
+      moves.className = "holding-moves";
+      const movesHead = document.createElement("div");
+      movesHead.className = "list-head";
+      movesHead.append(
+        Object.assign(document.createElement("h3"), { textContent: "Aportes por mes" }),
+        (() => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "btn";
+          btn.textContent = "Añadir aporte";
+          btn.addEventListener("click", () => {
+            holding.movements.push({
+              id: uid(),
+              year: state.viewYear,
+              month: monthKey(now.getMonth()),
+              amount: 0,
+              concept: ""
+            });
+            renderInvestDetail();
+          });
+          return btn;
+        })()
+      );
+      moves.appendChild(movesHead);
+
+      if (!holding.movements.length) {
+        const hint = document.createElement("p");
+        hint.className = "empty-note";
+        hint.textContent = "No hay un monto fijo cada mes: registra solo los meses en los que aportaste.";
+        moves.appendChild(hint);
+      } else {
+        holding.movements.forEach((mov, mIndex) => {
+          const row = document.createElement("div");
+          row.className = "row holding-move-row";
+          row.append(
+            makeSelect(String(mov.year), allYearsList().map((y) => ({ value: String(y), label: String(y) })), (value) => {
+              mov.year = Number(value);
+              updateInvestSide(pot);
+            }),
+            makeSelect(mov.month, monthOptions(), (value) => {
+              mov.month = value;
+              updateInvestSide(pot);
+            }),
+            moneyField(mov.amount, (val) => {
+              mov.amount = val;
+              updateInvestSide(pot);
+            }),
+            makeInput(mov.concept, (input) => {
+              mov.concept = input.value;
+            }, { type: "text", placeholder: "Concepto" }),
+            removeButton(() => {
+              holding.movements.splice(mIndex, 1);
+              renderInvestDetail();
+            })
+          );
+          moves.appendChild(row);
+        });
+      }
+      card.appendChild(moves);
+      section.appendChild(card);
+    });
+    container.appendChild(section);
+  }
+
+  function renderInvestDetail() {
+    const pot = state.investments.find((item) => item.id === state.openInvestId);
+    if (!pot) {
+      closeInvest();
+      return;
+    }
+    if (!Array.isArray(pot.holdings)) pot.holdings = [];
+
+    document.getElementById("invest-title").textContent = pot.name || "Producto";
+    document.getElementById("invest-lede").textContent =
+      pot.type === "cdt"
+        ? "CDT: indica el % de interés y el plazo; el sistema calcula intereses e impuesto."
+        : pot.type === "alta_rentabilidad"
+          ? "Alta rentabilidad: % anual (admite decimales) y proyección mes a mes con tus aportes reales."
+          : "Bolsa: posiciones ETF, acciones o cripto, con aportes irregulares mes a mes.";
+
+    document.getElementById("invest-table-hint").textContent =
+      pot.type === "bolsa"
+        ? "Resumen por posición: invertido, comisión (valor), disponible y rendimientos"
+        : "Tabla mes a mes: invertido, comisión, disponible y rendimientos";
+
+    const form = document.getElementById("invest-form");
+    form.replaceChildren();
+
+    const card = document.createElement("section");
+    card.className = "card card-pad stack-fields";
+
+    const addField = (label, control, extraClass) => {
+      const field = document.createElement("div");
+      field.className = extraClass ? `field ${extraClass}` : "field";
+      field.append(Object.assign(document.createElement("label"), { textContent: label }), control);
+      card.appendChild(field);
+    };
+
+    addField("Nombre", makeInput(pot.name, (input) => {
+      pot.name = input.value;
+      document.getElementById("invest-title").textContent = pot.name || "Producto";
+    }, { type: "text", placeholder: "CDT / alta rentabilidad / broker" }));
+
+    addField("Tipo", makeSelect(pot.type, INVEST_TYPES.map((t) => ({ value: t.id, label: t.label })), (value) => {
+      pot.type = value;
+      renderInvestDetail();
+    }));
+
+    addField("Banco / broker", makeSelect(pot.bankId || "", bankOptions(true), (value) => {
+      pot.bankId = value;
+    }));
+
+    addField("Mes de apertura", makeSelect(pot.openMonth, monthOptions(), (value) => {
+      pot.openMonth = value;
+      updateInvestSide(pot);
+    }));
+
+    addField("Año de apertura", makeInput(pot.openYear || "", (input) => {
+      pot.openYear = Number.parseInt(input.value, 10) || now.getFullYear();
+      updateInvestSide(pot);
+    }, { type: "number", step: "1" }));
+
+    if (pot.type !== "bolsa") {
+      addField("Ya invertido (no es ingreso del mes)", moneyField(pot.initialAmount, (val) => {
+        pot.initialAmount = val;
+        updateInvestSide(pot);
+      }), "field-money");
+    }
+
+    if (pot.type === "cdt") {
+      addField("Interés % (anual)", pctField(pot.interestRatePct, (val) => {
+        pot.interestRatePct = val;
+        updateInvestSide(pot);
+      }));
+      addField("Impuesto %", pctField(pot.taxPct, (val) => {
+        pot.taxPct = Number.isFinite(val) ? val : DEFAULT_TAX_PCT;
+        updateInvestSide(pot);
+      }));
+      addField("Plazo (meses)", makeInput(pot.termMonths || "", (input) => {
+        pot.termMonths = Math.max(1, Number.parseInt(input.value, 10) || 12);
+        updateInvestSide(pot);
+      }, { type: "number", min: "1", step: "1" }));
+
+      const preview = document.createElement("p");
+      preview.className = "saving-meta";
+      preview.id = "cdt-preview";
+      const gross = cdtGrossInterest(pot);
+      const tax = gross * ((Number(pot.taxPct) || 0) / 100);
+      preview.textContent = `Interés bruto estimado ${money(gross)} · neto tras impuesto ${money(gross - tax)}`;
+      card.appendChild(preview);
+    }
+
+    if (pot.type === "alta_rentabilidad") {
+      addField("Rentabilidad anual %", pctField(pot.annualYieldPct, (val) => {
+        pot.annualYieldPct = val;
+        updateInvestSide(pot);
+      }));
+      const hint = document.createElement("p");
+      hint.className = "saving-meta";
+      hint.textContent = "Los aportes mes a mes se toman de Flujo → Meses → Aportes a inversiones (pueden variar).";
+      card.appendChild(hint);
+    }
+
+    form.appendChild(card);
+
+    if (pot.type === "bolsa") {
+      renderBolsaHoldings(pot, form);
+    }
+
+    updateInvestSide(pot);
+
+    if (pot.type === "cdt") {
+      const preview = document.getElementById("cdt-preview");
+      if (preview) {
+        const syncPreview = () => {
+          const gross = cdtGrossInterest(pot);
+          const tax = gross * ((Number(pot.taxPct) || 0) / 100);
+          preview.textContent = `Interés bruto estimado ${money(gross)} · neto tras impuesto ${money(gross - tax)}`;
+        };
+        card.querySelectorAll("input").forEach((input) => {
+          input.addEventListener("input", syncPreview);
+        });
+      }
+    }
+  }
+
+  function renderPatrimonio() {
+    const box = document.getElementById("accounts-list");
+    const metricsBox = document.getElementById("patrimonio-metrics");
+    const accounts = patrimonioVisibleInYear(state.viewYear).filter((acc) => matchesBank(acc.bankId));
+    const total = accounts.reduce((sum, acc) => sum + (Number(acc.openingBalance) || 0), 0);
+    const byBank = {};
+    accounts.forEach((acc) => {
+      const key = acc.bankId || "none";
+      byBank[key] = (byBank[key] || 0) + (Number(acc.openingBalance) || 0);
+    });
+
+    metricsBox.replaceChildren(
+      metric("Total patrimonio", money(total), "Saldos iniciales registrados"),
+      metric("Cuentas", String(accounts.length), "Visibles con el filtro actual"),
+      metric(
+        "Bancos con saldo",
+        String(Object.keys(byBank).length),
+        Object.entries(byBank).slice(0, 2).map(([id, value]) => `${id === "none" ? "Sin banco" : bankName(id)} ${money(value)}`).join(" · ") || "—"
+      )
+    );
+
+    box.replaceChildren();
+    const allFiltered = state.accounts.filter((acc) => matchesBank(acc.bankId));
+    if (!allFiltered.length) {
+      const p = document.createElement("p");
+      p.className = "empty-note";
+      p.textContent = "Registra tus cuentas con el saldo que ya tenías al empezar (ej. septiembre). Ese monto no suma como ingreso del mes.";
+      box.appendChild(p);
+      return;
+    }
+
+    allFiltered.forEach((acc) => {
+      const index = state.accounts.findIndex((item) => item.id === acc.id);
+      const card = document.createElement("article");
+      card.className = "account-card";
+
+      const nameField = document.createElement("div");
+      nameField.className = "field";
+      nameField.append(
+        Object.assign(document.createElement("label"), { textContent: "Cuenta / producto" }),
+        makeInput(acc.name, (input) => { acc.name = input.value; }, { type: "text", placeholder: "Ahorros nómina" })
+      );
+
+      const bankField = document.createElement("div");
+      bankField.className = "field";
+      bankField.append(
+        Object.assign(document.createElement("label"), { textContent: "Banco" }),
+        makeSelect(acc.bankId || "", bankOptions(true), (value) => {
+          acc.bankId = value;
+          renderPatrimonio();
+          renderBankChips();
+        })
+      );
+
+      const typeField = document.createElement("div");
+      typeField.className = "field";
+      typeField.append(
+        Object.assign(document.createElement("label"), { textContent: "Tipo" }),
+        makeSelect(acc.type, ACCOUNT_TYPES.map((t) => ({ value: t.id, label: t.label })), (value) => {
+          acc.type = value;
+        })
+      );
+
+      const balField = document.createElement("div");
+      balField.className = "field field-money";
+      balField.append(
+        Object.assign(document.createElement("label"), { textContent: "Saldo al iniciar" }),
+        moneyField(acc.openingBalance, (val) => {
+          acc.openingBalance = val;
+          const liveAccounts = patrimonioVisibleInYear(state.viewYear).filter((a) => matchesBank(a.bankId));
+          const liveTotal = liveAccounts.reduce((sum, a) => sum + (Number(a.openingBalance) || 0), 0);
+          const liveByBank = {};
+          liveAccounts.forEach((a) => {
+            const key = a.bankId || "none";
+            liveByBank[key] = (liveByBank[key] || 0) + (Number(a.openingBalance) || 0);
+          });
+          metricsBox.replaceChildren(
+            metric("Total patrimonio", money(liveTotal), "Saldos iniciales registrados"),
+            metric("Cuentas", String(liveAccounts.length), "Visibles con el filtro actual"),
+            metric(
+              "Bancos con saldo",
+              String(Object.keys(liveByBank).length),
+              Object.entries(liveByBank).slice(0, 2).map(([id, value]) => `${id === "none" ? "Sin banco" : bankName(id)} ${money(value)}`).join(" · ") || "—"
+            )
+          );
+        })
+      );
+
+      const monthField = document.createElement("div");
+      monthField.className = "field";
+      monthField.append(
+        Object.assign(document.createElement("label"), { textContent: "Mes de corte" }),
+        makeSelect(acc.openingMonth, monthOptions(), (value) => {
+          acc.openingMonth = value;
+        })
+      );
+
+      const yearField = document.createElement("div");
+      yearField.className = "field";
+      yearField.append(
+        Object.assign(document.createElement("label"), { textContent: "Año de corte" }),
+        makeInput(acc.openingYear || "", (input) => {
+          acc.openingYear = Number.parseInt(input.value, 10) || now.getFullYear();
+        }, { type: "number", step: "1" })
+      );
+
+      const note = document.createElement("p");
+      note.className = "saving-meta account-note";
+      note.textContent = `Corte ${MONTHS[Number(acc.openingMonth) - 1] || "?"} ${acc.openingYear} · no cuenta como ingreso`;
+
+      const remove = removeButton(() => {
+        state.accounts.splice(index, 1);
+        render();
+      });
+      remove.classList.add("account-remove");
+
+      card.append(nameField, bankField, typeField, balField, monthField, yearField, note, remove);
+      box.appendChild(card);
+    });
   }
 
   function renderMonthGrid() {
@@ -439,7 +1448,10 @@
         mini.append(
           Object.assign(document.createElement("span"), { textContent: `Ingresos ${money(t.income)}` }),
           Object.assign(document.createElement("span"), { textContent: `Egresos ${money(t.egresos)}` }),
-          Object.assign(document.createElement("span"), { textContent: `Balance ${money(t.balance)}`, className: t.balance >= 0 ? "positive" : "negative" })
+          Object.assign(document.createElement("span"), {
+            textContent: `Balance ${money(t.balance)}`,
+            className: t.balance >= 0 ? "positive" : "negative"
+          })
         );
       } else {
         mini.append(Object.assign(document.createElement("span"), { textContent: "Sin datos · abrir para anotar" }));
@@ -450,14 +1462,14 @@
     });
   }
 
-  function addInvoiceRows(box, title, rows, indent) {
+  function addInvoiceRows(box, title, rows) {
     if (!rows.length) return;
     const h = document.createElement("div");
-    h.className = indent ? "invoice-row indent" : "invoice-row";
+    h.className = "invoice-row";
     h.style.color = "var(--faint)";
     h.textContent = title;
     box.appendChild(h);
-    rows.filter((row) => Number(row.amount) > 0).forEach((row) => {
+    rows.filter((row) => Number(row.amount) !== 0).forEach((row) => {
       const line = document.createElement("div");
       line.className = "invoice-row indent";
       const left = document.createElement("span");
@@ -473,6 +1485,10 @@
     const box = document.getElementById("invoice");
     box.replaceChildren();
     const totals = yearTotals(state.viewYear);
+    const patrimonio = patrimonioVisibleInYear(state.viewYear)
+      .reduce((sum, acc) => sum + (Number(acc.openingBalance) || 0), 0);
+    const carry = carryInTotals(state.viewYear);
+
     const head = document.createElement("div");
     head.className = "invoice-head";
     const left = document.createElement("div");
@@ -488,7 +1504,7 @@
     right.style.textAlign = "right";
     const stamp = document.createElement("p");
     stamp.className = "faint";
-    stamp.textContent = "Resumen del año";
+    stamp.textContent = "Balance del flujo (sin patrimonio inicial)";
     const big = document.createElement("strong");
     big.style.fontFamily = "var(--serif)";
     big.style.fontSize = "1.6rem";
@@ -496,6 +1512,26 @@
     right.append(stamp, big);
     head.append(left, right);
     box.appendChild(head);
+
+    if (patrimonio > 0 || carry.total > 0) {
+      const preamble = document.createElement("section");
+      preamble.className = "invoice-month";
+      const h3 = document.createElement("h3");
+      h3.textContent = "Posición de partida";
+      preamble.appendChild(h3);
+      if (patrimonio > 0) {
+        addInvoiceRows(preamble, "Patrimonio (saldos iniciales)", [
+          { name: "Cuentas bancarias registradas", amount: patrimonio }
+        ]);
+      }
+      if (carry.total > 0) {
+        addInvoiceRows(preamble, "Arrastre de años anteriores", [
+          { name: "Ahorros", amount: carry.savings },
+          { name: "Inversiones", amount: carry.investments }
+        ]);
+      }
+      box.appendChild(preamble);
+    }
 
     let any = false;
     MONTHS.forEach((name, index) => {
@@ -513,12 +1549,17 @@
         name: `${row.name || "Gasto"} · ${categoryById(row.category).label}`,
         amount: row.amount
       })));
-      addInvoiceRows(block, "Ahorros", (entry.contributions || []).map((row) => ({
-        name: (state.savings.find((s) => s.id === row.savingId) || {}).name || "Ahorro",
-        amount: row.amount
-      })));
+      addInvoiceRows(block, "Ahorros", (entry.contributions || []).map((row) => {
+        const pot = state.savings.find((s) => s.id === row.savingId);
+        const verb = row.kind === "retiro" ? "Retiro" : "Aporte";
+        const concept = row.concept ? ` · ${row.concept}` : "";
+        return {
+          name: `${verb} ${(pot && pot.name) || "Ahorro"}${concept}`,
+          amount: contribSigned(row)
+        };
+      }));
       addInvoiceRows(block, "Inversiones", (entry.investments || []).map((row) => ({
-        name: (state.investments.find((s) => s.id === row.investmentId) || {}).name || "Inversión",
+        name: `${(state.investments.find((s) => s.id === row.investmentId) || {}).name || "Inversión"}${row.concept ? ` · ${row.concept}` : ""}`,
         amount: row.amount
       })));
       const sub = document.createElement("div");
@@ -531,10 +1572,10 @@
       box.appendChild(block);
     });
 
-    if (!any) {
+    if (!any && patrimonio <= 0 && carry.total <= 0) {
       const empty = document.createElement("p");
       empty.className = "invoice-empty";
-      empty.textContent = "Todavía no hay movimientos este año. Anótalos en la pestaña Meses.";
+      empty.textContent = "Todavía no hay movimientos este año. Empieza por Patrimonio o por la pestaña Meses.";
       box.appendChild(empty);
       return;
     }
@@ -542,11 +1583,12 @@
     const foot = document.createElement("section");
     foot.className = "invoice-foot";
     [
+      ["Patrimonio registrado", patrimonio],
       ["Ingresos", totals.income],
       ["Egresos", totals.egresos],
-      ["Ahorros", totals.ahorros],
+      ["Ahorros (neto)", totals.ahorros],
       ["Inversiones", totals.inversiones],
-      ["Balance del año", totals.balance]
+      ["Balance del flujo", totals.balance]
     ].forEach(([label, value]) => {
       const row = document.createElement("div");
       row.className = "invoice-row total";
@@ -621,45 +1663,46 @@
     });
   }
 
-  function renderLinkedRows(kind) {
-    const isSaving = kind === "saving";
-    const box = document.getElementById(isSaving ? "contrib-rows" : "placement-rows");
-    const hint = document.getElementById(isSaving ? "contrib-hint" : "invest-hint");
+  function renderContribs() {
+    const box = document.getElementById("contrib-rows");
+    const hint = document.getElementById("contrib-hint");
     const entry = currentMonth();
-    const pots = isSaving ? state.savings : state.investments;
-    const field = isSaving ? "contributions" : "investments";
-    const idKey = isSaving ? "savingId" : "investmentId";
+    const pots = state.savings;
     box.replaceChildren();
     if (!pots.length) {
-      hint.textContent = isSaving
-        ? "Crea un ahorro en Recopilado y vuelve a este mes para aportar."
-        : "Crea una inversión en Recopilado y vuelve a este mes para aportar.";
+      hint.textContent = "Crea un ahorro en Recopilado (con saldo inicial si aplica) y vuelve a este mes.";
       return;
     }
-    hint.textContent = "Elige el fondo y el monto. Se resta del mes y se suma al acumulado.";
-    if (!entry[field]) entry[field] = [];
-    entry[field].forEach((row, index) => {
+    hint.textContent = "Aporte o retiro con concepto. Ejemplo: retiro de Vehículos · gasolina.";
+    if (!entry.contributions) entry.contributions = [];
+    entry.contributions.forEach((row, index) => {
       const wrap = document.createElement("div");
-      wrap.className = "row contrib";
-      const select = document.createElement("select");
-      pots.forEach((pot) => {
-        const option = document.createElement("option");
-        option.value = pot.id;
-        option.textContent = pot.name || "Sin nombre";
-        if (pot.id === row[idKey]) option.selected = true;
-        select.appendChild(option);
+      wrap.className = "row contrib-rich";
+      const select = makeSelect(row.savingId || (pots[0] && pots[0].id) || "", pots.map((pot) => ({
+        value: pot.id,
+        label: pot.name || "Sin nombre"
+      })), (value) => { row.savingId = value; });
+      if (!row.savingId && pots[0]) row.savingId = pots[0].id;
+      const kind = makeSelect(row.kind || "aporte", [
+        { value: "aporte", label: "Aporte" },
+        { value: "retiro", label: "Retiro" }
+      ], (value) => {
+        row.kind = value;
+        renderMonthTotals();
       });
-      if (!row[idKey] && pots[0]) row[idKey] = pots[0].id;
-      select.addEventListener("change", () => { row[idKey] = select.value; });
       wrap.append(
         select,
+        kind,
         makeInput(row.amount || "", (input) => {
           row.amount = Number.parseFloat(input.value) || 0;
           renderMonthTotals();
         }, { type: "number", min: "0", step: "any", placeholder: "0" }),
+        makeInput(row.concept || "", (input) => {
+          row.concept = input.value;
+        }, { type: "text", placeholder: "Concepto (ej. gasolina)" }),
         removeButton(() => {
-          entry[field].splice(index, 1);
-          renderLinkedRows(kind);
+          entry.contributions.splice(index, 1);
+          renderContribs();
           renderMonthTotals();
         })
       );
@@ -667,12 +1710,43 @@
     });
   }
 
-  function renderContribs() {
-    renderLinkedRows("saving");
-  }
-
   function renderPlacements() {
-    renderLinkedRows("investment");
+    const box = document.getElementById("placement-rows");
+    const hint = document.getElementById("invest-hint");
+    const entry = currentMonth();
+    const pots = state.investments;
+    box.replaceChildren();
+    if (!pots.length) {
+      hint.textContent = "Crea un producto de inversión en Recopilado y vuelve a este mes para aportar.";
+      return;
+    }
+    hint.textContent = "Elige el producto y el monto. Se resta del mes y se suma al acumulado del producto.";
+    if (!entry.investments) entry.investments = [];
+    entry.investments.forEach((row, index) => {
+      const wrap = document.createElement("div");
+      wrap.className = "row contrib-rich";
+      const select = makeSelect(row.investmentId || (pots[0] && pots[0].id) || "", pots.map((pot) => ({
+        value: pot.id,
+        label: `${pot.name || "Sin nombre"} · ${investTypeLabel(pot.type)}`
+      })), (value) => { row.investmentId = value; });
+      if (!row.investmentId && pots[0]) row.investmentId = pots[0].id;
+      wrap.append(
+        select,
+        makeInput(row.amount || "", (input) => {
+          row.amount = Number.parseFloat(input.value) || 0;
+          renderMonthTotals();
+        }, { type: "number", min: "0", step: "any", placeholder: "0" }),
+        makeInput(row.concept || "", (input) => {
+          row.concept = input.value;
+        }, { type: "text", placeholder: "Concepto (opcional)" }),
+        removeButton(() => {
+          entry.investments.splice(index, 1);
+          renderPlacements();
+          renderMonthTotals();
+        })
+      );
+      box.appendChild(wrap);
+    });
   }
 
   function renderMonthTotals() {
@@ -682,16 +1756,16 @@
     document.getElementById("expense-total").textContent = money(t.expense);
     document.getElementById("contrib-total").textContent = money(t.contrib);
     document.getElementById("placement-total").textContent = money(t.invest);
-    const slices = expenseSlices(entry.expenses, t.contrib, t.invest);
+    const slices = expenseSlices(entry.expenses, t.aportes, t.invest);
     document.getElementById("month-metrics").replaceChildren(
-      metric("Balance del mes", money(t.balance), "Ingresos − egresos − aportes", t.balance >= 0 ? "positive" : "negative"),
+      metric("Balance del mes", money(t.balance), "Ingresos − egresos − aportes + retiros", t.balance >= 0 ? "positive" : "negative"),
       metric("Ingresos", money(t.income), ""),
-      metric("Ahorrado", money(t.contrib), "Va a tus ahorros"),
+      metric("Ahorrado neto", money(t.contrib), t.retiros ? `Retiros ${money(t.retiros)}` : "Va a tus ahorros"),
       metric("Invertido", money(t.invest), "Va a tus inversiones")
     );
     NorteCharts.donutChart(document.getElementById("month-donut"), slices, {
       centerLabel: "Salidas",
-      centerValue: money(t.expense + t.contrib + t.invest),
+      centerValue: money(t.expense + t.aportes + t.invest),
       empty: "Añade egresos o aportes para ver la composición",
       format: money
     });
@@ -711,7 +1785,10 @@
   function render() {
     nameInput.value = state.profile.name || "";
     renderYearBar();
-    if (state.openMonth) {
+    if (state.openInvestId) {
+      setView("invest");
+      renderInvestDetail();
+    } else if (state.openMonth) {
       setView("month");
       renderMonth();
     } else {
@@ -724,6 +1801,9 @@
     return {
       profile: { ...state.profile },
       viewYear: state.viewYear,
+      bankFilter: state.bankFilter,
+      banks: state.banks.map((row) => ({ ...row })),
+      accounts: state.accounts.map((row) => ({ ...row })),
       savings: state.savings.map((row) => ({ ...row })),
       investments: state.investments.map((row) => ({ ...row })),
       years: JSON.parse(JSON.stringify(state.years))
@@ -735,15 +1815,21 @@
     if (data.years) {
       state.profile = { name: (data.profile && data.profile.name) || "" };
       state.viewYear = Number(data.viewYear) || state.viewYear;
-      state.savings = Array.isArray(data.savings) ? data.savings : [];
-      state.investments = Array.isArray(data.investments) ? data.investments : [];
+      state.bankFilter = data.bankFilter || "all";
+      state.banks = Array.isArray(data.banks) ? data.banks.map(normalizeBank) : [];
+      state.accounts = Array.isArray(data.accounts) ? data.accounts.map(normalizeAccount) : [];
+      state.savings = Array.isArray(data.savings) ? data.savings.map(normalizeSaving) : [];
+      state.investments = Array.isArray(data.investments) ? data.investments.map(normalizeInvestment) : [];
       state.years = data.years;
       state.openMonth = null;
+      state.openInvestId = null;
     } else if (data.incomes || data.expenses) {
       const period = (data.profile && data.profile.period) || `${state.viewYear}-01`;
       const [year, month] = period.split("-");
       state.profile.name = (data.profile && data.profile.name) || "";
       state.viewYear = Number(year) || state.viewYear;
+      state.banks = [];
+      state.accounts = [];
       state.savings = [];
       state.investments = [];
       state.years = {
@@ -764,20 +1850,106 @@
   }
 
   function loadExample() {
+    const bank1 = uid();
+    const bank2 = uid();
     const a = uid();
     const b = uid();
     const c = uid();
+    const d = uid();
+    const e = uid();
     const year = String(now.getFullYear());
+    const month = monthKey(now.getMonth());
     state.profile = { name: "Ana" };
     state.viewYear = Number(year);
     state.openMonth = null;
+    state.openInvestId = null;
     state.tab = "recopilado";
+    state.bankFilter = "all";
+    state.banks = [
+      { id: bank1, name: "Bancolombia" },
+      { id: bank2, name: "Nequi" }
+    ];
+    state.accounts = [
+      {
+        id: uid(),
+        name: "Cuenta nómina",
+        bankId: bank1,
+        type: "ahorros",
+        openingBalance: 8500000,
+        openingYear: Number(year),
+        openingMonth: month,
+        notes: ""
+      },
+      {
+        id: uid(),
+        name: "Bolsillo",
+        bankId: bank2,
+        type: "ahorros",
+        openingBalance: 1200000,
+        openingYear: Number(year),
+        openingMonth: month,
+        notes: ""
+      }
+    ];
     state.savings = [
-      { id: a, name: "Fondo de emergencia", target: 10000000 },
-      { id: b, name: "Viaje", target: 4500000 }
+      { id: a, name: "Fondo de emergencia", target: 10000000, bankId: bank1, initialAmount: 3500000 },
+      { id: b, name: "Vehículos", target: 4500000, bankId: bank1, initialAmount: 800000 }
     ];
     state.investments = [
-      { id: c, name: "CDT", target: 8000000 }
+      normalizeInvestment({
+        id: c,
+        name: "Broker bolsa",
+        type: "bolsa",
+        bankId: bank1,
+        openYear: Number(year),
+        openMonth: "01",
+        holdings: [
+          {
+            id: uid(),
+            kind: "etf",
+            name: "VOO",
+            invested: 4000000,
+            available: 3950000,
+            commission: 25000,
+            returns: 180000,
+            movements: [
+              { id: uid(), year: Number(year), month: "02", amount: 500000, concept: "Aporte febrero" }
+            ]
+          },
+          {
+            id: uid(),
+            kind: "acciones",
+            name: "ECOPETROL",
+            invested: 1200000,
+            available: 1100000,
+            commission: 15000,
+            returns: -80000,
+            movements: []
+          }
+        ]
+      }),
+      normalizeInvestment({
+        id: d,
+        name: "CDT 180 días",
+        type: "cdt",
+        bankId: bank1,
+        initialAmount: 10000000,
+        interestRatePct: 13,
+        taxPct: 4,
+        termMonths: 6,
+        openYear: Number(year),
+        openMonth: month
+      }),
+      normalizeInvestment({
+        id: e,
+        name: "Alta rentabilidad",
+        type: "alta_rentabilidad",
+        bankId: bank2,
+        initialAmount: 2000000,
+        annualYieldPct: 9.5,
+        openYear: Number(year),
+        openMonth: "01"
+      })
     ];
     state.years = {
       [year]: {
@@ -787,41 +1959,34 @@
             incomes: [{ id: uid(), name: "Salario", amount: 4800000 }],
             expenses: [
               { id: uid(), name: "Arriendo", category: "vivienda", amount: 1600000 },
-              { id: uid(), name: "Mercado", category: "alimentacion", amount: 820000 },
-              { id: uid(), name: "Luz y agua", category: "servicios", amount: 280000 }
+              { id: uid(), name: "Mercado", category: "alimentacion", amount: 820000 }
             ],
-            contributions: [{ id: uid(), savingId: a, amount: 500000 }],
-            investments: [{ id: uid(), investmentId: c, amount: 400000 }]
+            contributions: [
+              { id: uid(), savingId: a, amount: 500000, kind: "aporte", concept: "Aporte mensual" }
+            ],
+            investments: [
+              { id: uid(), investmentId: e, amount: 200000, concept: "Aporte alta rentabilidad" }
+            ]
           },
           "02": {
-            notes: "",
-            incomes: [
-              { id: uid(), name: "Salario", amount: 4800000 },
-              { id: uid(), name: "Freelance", amount: 900000 }
-            ],
-            expenses: [
-              { id: uid(), name: "Arriendo", category: "vivienda", amount: 1600000 },
-              { id: uid(), name: "Mercado", category: "alimentacion", amount: 790000 },
-              { id: uid(), name: "Taller", category: "vehiculos", amount: 410000 }
-            ],
-            contributions: [{ id: uid(), savingId: b, amount: 300000 }],
-            investments: [{ id: uid(), investmentId: c, amount: 500000 }]
-          },
-          "03": {
             notes: "",
             incomes: [{ id: uid(), name: "Salario", amount: 4800000 }],
             expenses: [
               { id: uid(), name: "Arriendo", category: "vivienda", amount: 1600000 },
-              { id: uid(), name: "Mercado", category: "alimentacion", amount: 800000 }
+              { id: uid(), name: "Mercado", category: "alimentacion", amount: 790000 }
             ],
-            contributions: [{ id: uid(), savingId: a, amount: 400000 }],
-            investments: [{ id: uid(), investmentId: c, amount: 400000 }]
+            contributions: [
+              { id: uid(), savingId: b, amount: 150000, kind: "retiro", concept: "Gasolina" }
+            ],
+            investments: [
+              { id: uid(), investmentId: e, amount: 150000, concept: "" }
+            ]
           }
         }
       }
     };
     render();
-    Norte.toast("Ejemplo cargado con ahorros e inversiones.");
+    Norte.toast("Ejemplo con patrimonio, bancos e inversiones tipadas.");
   }
 
   document.querySelectorAll(".overview-tabs [data-tab]").forEach((button) => {
@@ -842,13 +2007,51 @@
     const entry = currentMonth();
     if (entry) entry.notes = notesInput.value;
   });
+  document.getElementById("btn-manage-banks").addEventListener("click", () => {
+    renderBanksModal();
+    banksModal.showModal();
+  });
+  document.getElementById("add-bank").addEventListener("click", () => {
+    state.banks.push({ id: uid(), name: "Nuevo banco" });
+    renderBanksModal();
+    renderBankChips();
+  });
   document.getElementById("add-saving").addEventListener("click", () => {
-    state.savings.push({ id: uid(), name: "Nuevo ahorro", target: 0 });
+    state.savings.push({
+      id: uid(),
+      name: "Nuevo ahorro",
+      target: 0,
+      bankId: state.banks[0] ? state.banks[0].id : "",
+      initialAmount: 0
+    });
     renderSavings();
   });
   document.getElementById("add-invest").addEventListener("click", () => {
-    state.investments.push({ id: uid(), name: "Nueva inversión", target: 0 });
-    renderInvestments();
+    const pot = normalizeInvestment({
+      id: uid(),
+      name: "Nuevo producto",
+      type: "bolsa",
+      bankId: state.banks[0] ? state.banks[0].id : "",
+      initialAmount: 0,
+      openYear: state.viewYear,
+      openMonth: monthKey(now.getMonth()),
+      taxPct: DEFAULT_TAX_PCT,
+      holdings: []
+    });
+    state.investments.push(pot);
+    openInvest(pot.id);
+  });
+  document.getElementById("add-account").addEventListener("click", () => {
+    state.accounts.push(normalizeAccount({
+      id: uid(),
+      name: "Nueva cuenta",
+      bankId: state.banks[0] ? state.banks[0].id : "",
+      type: "ahorros",
+      openingBalance: 0,
+      openingYear: state.viewYear,
+      openingMonth: monthKey(now.getMonth())
+    }));
+    renderPatrimonio();
   });
   document.getElementById("add-income").addEventListener("click", () => {
     currentMonth().incomes.push({ id: uid(), name: "", amount: 0 });
@@ -863,18 +2066,30 @@
       Norte.toast("Crea un ahorro en Recopilado primero.", "error");
       return;
     }
-    currentMonth().contributions.push({ id: uid(), savingId: state.savings[0].id, amount: 0 });
+    currentMonth().contributions.push({
+      id: uid(),
+      savingId: state.savings[0].id,
+      amount: 0,
+      kind: "aporte",
+      concept: ""
+    });
     renderContribs();
   });
   document.getElementById("add-placement").addEventListener("click", () => {
     if (!state.investments.length) {
-      Norte.toast("Crea una inversión en Recopilado primero.", "error");
+      Norte.toast("Crea un producto de inversión en Recopilado primero.", "error");
       return;
     }
-    currentMonth().investments.push({ id: uid(), investmentId: state.investments[0].id, amount: 0 });
+    currentMonth().investments.push({
+      id: uid(),
+      investmentId: state.investments[0].id,
+      amount: 0,
+      concept: ""
+    });
     renderPlacements();
   });
   document.getElementById("btn-back").addEventListener("click", closeMonth);
+  document.getElementById("btn-back-invest").addEventListener("click", closeInvest);
   document.getElementById("btn-ejemplo").addEventListener("click", loadExample);
   document.getElementById("btn-guardar").addEventListener("click", () => {
     Norte.downloadSnapshot(FEATURE, snapshot());

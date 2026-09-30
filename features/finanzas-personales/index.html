@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#08090b">
-  <meta name="description" content="Flujo personal: recopilado anual, meses, ahorros, inversiones y factura del año.">
+  <meta name="description" content="Flujo personal: patrimonio, bancos, meses, ahorros, inversiones y factura del año.">
   <title>Flujo personal — Norte</title>
   <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -43,7 +43,7 @@
       <div class="page-head">
         <p class="kicker"><span></span> 01 · Caja del año</p>
         <h1>Flujo personal</h1>
-        <p class="lede">Recopilado del año, meses para anotar y una factura con todos los movimientos. Los ahorros e inversiones se acumulan cuando un mes aporta.</p>
+        <p class="lede">Patrimonio y saldos iniciales no cuentan como ingreso del mes. El flujo mensual registra lo que entra y sale; ahorros e inversiones se acumulan entre años.</p>
       </div>
 
       <div class="year-bar card card-pad">
@@ -53,6 +53,11 @@
           <button class="btn" type="button" id="year-next" aria-label="Año siguiente">›</button>
         </div>
         <div class="year-chips" id="year-chips"></div>
+        <div class="bank-bar">
+          <span class="bank-label">Banco</span>
+          <div class="year-chips" id="bank-chips" aria-label="Filtro por banco"></div>
+          <button class="btn btn-ghost" type="button" id="btn-manage-banks">Bancos</button>
+        </div>
         <div class="year-tools">
           <div class="field">
             <label for="nombre">Nombre o apodo</label>
@@ -65,6 +70,7 @@
       <div class="tabs overview-tabs" role="tablist" aria-label="Vistas del año">
         <button type="button" role="tab" data-tab="recopilado" class="is-active">Recopilado</button>
         <button type="button" role="tab" data-tab="meses">Meses</button>
+        <button type="button" role="tab" data-tab="patrimonio">Patrimonio</button>
         <button type="button" role="tab" data-tab="factura">Factura</button>
       </div>
 
@@ -98,7 +104,7 @@
           <div class="list-head">
             <div>
               <h2>Ahorros</h2>
-              <p class="faint">Se acumulan entre meses y años.</p>
+              <p class="faint">Saldo inicial + aportes − retiros, con concepto. Se arrastran al año siguiente.</p>
             </div>
             <button class="btn" type="button" id="add-saving">Nuevo ahorro</button>
           </div>
@@ -109,9 +115,9 @@
           <div class="list-head">
             <div>
               <h2>Inversiones</h2>
-              <p class="faint">Fondos, CDT, acciones… cada aporte mensual suma aquí.</p>
+              <p class="faint">Productos (fondo, CDT, alta rentabilidad). Entra a cada uno para el detalle mes a mes.</p>
             </div>
-            <button class="btn" type="button" id="add-invest">Nueva inversión</button>
+            <button class="btn" type="button" id="add-invest">Nuevo producto</button>
           </div>
           <div class="savings-list" id="invest-list"></div>
         </section>
@@ -127,6 +133,21 @@
         </section>
       </div>
 
+      <div id="panel-patrimonio" hidden>
+        <section class="card card-pad patrimonio-panel">
+          <div class="list-head">
+            <div>
+              <h2>Patrimonio bancario</h2>
+              <p class="faint">Registra lo que ya tienes en cada banco. Ese saldo inicial no aparece como ingreso del mes.</p>
+            </div>
+            <button class="btn" type="button" id="add-account">Nueva cuenta</button>
+          </div>
+          <div class="metrics" id="patrimonio-metrics"></div>
+          <div class="patrimonio-divider" aria-hidden="true"></div>
+          <div class="savings-list" id="accounts-list"></div>
+        </section>
+      </div>
+
       <div id="panel-factura" hidden>
         <article class="card invoice" id="invoice"></article>
       </div>
@@ -137,7 +158,7 @@
       <div class="page-head">
         <p class="kicker"><span></span> Mes</p>
         <h1 id="month-title">Enero 2026</h1>
-        <p class="lede">Anota lo de este mes. Los aportes a ahorros e inversiones salen del flujo y se suman a cada fondo.</p>
+        <p class="lede">Anota lo de este mes. Los aportes a ahorros e inversiones salen del flujo y se suman a cada fondo. Usa concepto al retirar o aportar.</p>
       </div>
 
       <div class="workspace">
@@ -172,13 +193,13 @@
           </section>
           <section class="card card-pad">
             <div class="list-head">
-              <h2>Aportes a ahorros</h2>
-              <button class="btn" type="button" id="add-contrib">Añadir aporte</button>
+              <h2>Movimientos de ahorros</h2>
+              <button class="btn" type="button" id="add-contrib">Añadir movimiento</button>
             </div>
             <p class="faint contrib-hint" id="contrib-hint"></p>
             <div class="rows" id="contrib-rows"></div>
             <div class="list-total">
-              <span class="muted">Total ahorrado este mes</span>
+              <span class="muted">Neto ahorrado este mes</span>
               <strong id="contrib-total">$0</strong>
             </div>
           </section>
@@ -206,7 +227,50 @@
         </aside>
       </div>
     </section>
+
+    <section id="view-invest" hidden>
+      <button class="btn btn-ghost back-btn" type="button" id="btn-back-invest">← Volver al recopilado</button>
+      <div class="page-head">
+        <p class="kicker"><span></span> Producto</p>
+        <h1 id="invest-title">Inversión</h1>
+        <p class="lede" id="invest-lede">Detalle del producto, capital ya invertido y proyección mes a mes.</p>
+      </div>
+      <div class="workspace invest-workspace">
+        <div class="stack" id="invest-form"></div>
+        <aside class="stack">
+          <div class="metrics" id="invest-metrics"></div>
+          <article class="card card-pad">
+            <div class="list-head">
+              <h2>Tabla mes a mes</h2>
+              <p class="faint" id="invest-table-hint">Invertido, comisión, disponible y rendimientos</p>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead id="invest-table-head"></thead>
+                <tbody id="invest-table-body"></tbody>
+              </table>
+            </div>
+          </article>
+        </aside>
+      </div>
+    </section>
   </main>
+
+  <dialog class="modal" id="banks-modal">
+    <form method="dialog" class="modal-card">
+      <div class="list-head">
+        <div>
+          <h2>Bancos</h2>
+          <p class="faint">Asocia cuentas, ahorros e inversiones a un banco y filtra en la vista principal.</p>
+        </div>
+        <button class="btn" type="button" id="add-bank">Añadir banco</button>
+      </div>
+      <div class="savings-list" id="banks-list"></div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" value="close">Listo</button>
+      </div>
+    </form>
+  </dialog>
 
   <script src="../../assets/js/norte.js"></script>
   <script src="../../assets/js/charts.js"></script>

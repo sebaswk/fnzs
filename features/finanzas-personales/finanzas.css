@@ -11,6 +11,11 @@
   gap: 16px;
 }
 
+.stack-fields {
+  display: grid;
+  gap: 14px;
+}
+
 .year-bar {
   display: grid;
   gap: 16px;
@@ -40,6 +45,20 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.bank-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.bank-label {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
 }
 
 .year-tools {
@@ -140,7 +159,21 @@
 
 .savings-list {
   display: grid;
-  gap: 12px;
+  gap: 16px;
+}
+
+#patrimonio-metrics {
+  margin: 8px 0 0;
+}
+
+.patrimonio-divider {
+  height: 1px;
+  background: var(--line-strong);
+  margin: 22px 0 18px;
+}
+
+#accounts-list {
+  margin-top: 0;
 }
 
 .saving-card {
@@ -152,6 +185,99 @@
   border: 1px solid var(--line);
   border-radius: 14px;
   background: rgba(8, 9, 11, 0.35);
+}
+
+.saving-card-rich {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) 40px;
+}
+
+.account-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 16px;
+  align-items: end;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(8, 9, 11, 0.35);
+  position: relative;
+}
+
+.account-card .account-note {
+  grid-column: 1 / -1;
+  margin-top: 0;
+}
+
+.account-card .account-remove {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+}
+
+.field-money input {
+  min-width: 0;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.account-card .field-money {
+  grid-column: span 1;
+  min-width: 0;
+}
+
+.account-card .field-money input {
+  min-width: 140px;
+}
+
+.bank-card {
+  grid-template-columns: minmax(0, 1fr) 40px;
+}
+
+.holding-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(8, 9, 11, 0.28);
+  position: relative;
+  margin-top: 12px;
+}
+
+.holding-card > .icon-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.holding-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding-right: 44px;
+}
+
+.holding-moves {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.holding-moves h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-family: var(--serif);
+  font-weight: 500;
+}
+
+.holding-move-row {
+  grid-template-columns: 90px minmax(110px, 1fr) minmax(120px, 1fr) minmax(0, 1.2fr) 40px;
+}
+
+.holdings-panel {
+  margin-top: 0;
 }
 
 .saving-card .progress {
@@ -169,10 +295,105 @@
   border-radius: 99px;
 }
 
-.saving-meta {
+.saving-meta,
+.account-note {
   font-size: 12px;
   color: var(--muted);
   margin-top: 4px;
+  grid-column: 1 / -1;
+}
+
+.invest-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(8, 9, 11, 0.35);
+  position: relative;
+}
+
+.invest-card .icon-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.invest-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+  padding-right: 44px;
+}
+
+.invest-card-top h3 {
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-weight: 500;
+  margin: 0 0 6px;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sky);
+  border: 1px solid rgba(138, 164, 196, 0.35);
+  border-radius: 999px;
+  padding: 3px 8px;
+  margin-bottom: 6px;
+}
+
+.invest-mini {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.invest-mini div {
+  display: grid;
+  gap: 4px;
+}
+
+.invest-mini strong {
+  font-size: 0.95rem;
+}
+
+.invest-workspace {
+  margin-top: 22px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table-wrap th,
+.table-wrap td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.table-wrap th:first-child,
+.table-wrap td:first-child {
+  text-align: left;
+}
+
+.table-wrap th {
+  color: var(--faint);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 11px;
 }
 
 .month-grid {
@@ -254,8 +475,13 @@
   grid-template-columns: minmax(0, 1.2fr) 140px 40px;
 }
 
+.row.contrib-rich {
+  grid-template-columns: minmax(120px, 1fr) 110px 110px minmax(120px, 1.2fr) 40px;
+}
+
 .row input,
-.row select {
+.row select,
+.field select {
   width: 100%;
   border: 1px solid var(--line);
   background: var(--bg);
@@ -267,7 +493,8 @@
 }
 
 .row input:focus,
-.row select:focus {
+.row select:focus,
+.field select:focus {
   border-color: var(--gold);
 }
 
@@ -309,14 +536,46 @@
   padding: 8px 0;
 }
 
+.modal {
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0;
+  max-width: min(560px, calc(100vw - 32px));
+  width: 100%;
+}
+
+.modal::backdrop {
+  background: rgba(4, 5, 7, 0.72);
+}
+
+.modal-card {
+  padding: 22px;
+  display: grid;
+  gap: 16px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 @media (max-width: 960px) {
   .overview-grid,
   .workspace,
   .year-tools,
   .saving-card,
+  .saving-card-rich,
+  .bank-card,
+  .account-card,
+  .holding-grid,
   .row,
   .row.expense,
-  .row.contrib {
+  .row.contrib,
+  .row.contrib-rich,
+  .holding-move-row,
+  .invest-mini {
     grid-template-columns: 1fr;
   }
 
@@ -326,5 +585,22 @@
 
   .icon-btn {
     width: 100%;
+  }
+
+  .invest-card .icon-btn,
+  .account-card .account-remove,
+  .holding-card > .icon-btn {
+    position: static;
+    width: 100%;
+  }
+
+  .invest-card-top,
+  .holding-grid {
+    padding-right: 0;
+    flex-direction: column;
+  }
+
+  .account-card .field-money input {
+    min-width: 0;
   }
 }
