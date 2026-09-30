@@ -353,6 +353,28 @@
   font-weight: 500;
 }
 
+.bank-required-note {
+  margin: 12px 0 18px;
+  grid-column: 1 / -1;
+}
+
+.bank-required-note strong {
+  display: block;
+  font-family: var(--serif);
+  font-size: 1.15rem;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.bank-required-note .faint {
+  margin: 0;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .holdings-panel {
   margin-top: 0;
 }
