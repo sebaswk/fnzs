@@ -19,6 +19,11 @@
   padding-top: 18px;
 }
 
+.page-head > div {
+  flex: 1;
+  min-width: 0;
+}
+
 .page-head .lede {
   margin-top: 12px;
 }

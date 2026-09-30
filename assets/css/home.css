@@ -7,7 +7,6 @@
 .hero-copy {
   display: grid;
   gap: 18px;
-  max-width: 40rem;
 }
 
 .catalog {
