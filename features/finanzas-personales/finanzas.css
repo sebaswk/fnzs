@@ -188,7 +188,88 @@
 }
 
 .saving-card-rich {
-  grid-template-columns: repeat(3, minmax(0, 1fr)) 40px;
+  grid-template-columns: minmax(140px, 1.1fr) minmax(120px, 0.9fr) minmax(150px, 1fr) minmax(150px, 1fr) minmax(140px, 1fr) 40px;
+}
+
+.saving-card-rich .field-meta input,
+.saving-card-rich .field-money input {
+  min-width: 0;
+  width: 100%;
+}
+
+.holding-move-row {
+  display: grid;
+  grid-template-columns: 88px minmax(110px, 0.9fr) minmax(130px, 1fr) minmax(120px, 0.9fr) minmax(0, 1.2fr) 40px;
+  gap: 8px;
+  align-items: center;
+}
+
+.holding-move-row input,
+.holding-move-row select {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 11px 12px;
+  font-size: 14px;
+  outline: none;
+}
+
+.move-legend {
+  display: grid;
+  grid-template-columns: 88px minmax(110px, 0.9fr) minmax(130px, 1fr) minmax(120px, 0.9fr) minmax(0, 1.2fr) 40px;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.patrimonio-linked {
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.patrimonio-linked h3,
+.accounts-subhead h3 {
+  margin: 0 0 8px;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 1.15rem;
+}
+
+.accounts-subhead {
+  margin: 8px 0 14px;
+  align-items: start;
+}
+
+.patrimonio-linked-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.linked-block {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(8, 9, 11, 0.28);
+}
+
+.linked-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.linked-row:last-child {
+  border-bottom: 0;
 }
 
 .account-card {
@@ -270,10 +351,6 @@
   font-size: 0.95rem;
   font-family: var(--serif);
   font-weight: 500;
-}
-
-.holding-move-row {
-  grid-template-columns: 90px minmax(110px, 1fr) minmax(120px, 1fr) minmax(0, 1.2fr) 40px;
 }
 
 .holdings-panel {
@@ -575,6 +652,8 @@
   .row.contrib,
   .row.contrib-rich,
   .holding-move-row,
+  .move-legend,
+  .patrimonio-linked-grid,
   .invest-mini {
     grid-template-columns: 1fr;
   }

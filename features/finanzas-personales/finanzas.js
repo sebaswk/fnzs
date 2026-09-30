@@ -85,28 +85,47 @@
       invested: Number(row.invested) || 0,
       available: Number(row.available) || 0,
       commission: Number(row.commission) || 0,
-      returns: Number(row.returns) || 0,
       movements: Array.isArray(row.movements)
         ? row.movements.map((m) => ({
           id: m.id || uid(),
           year: Number(m.year) || new Date().getFullYear(),
           month: m.month || "01",
           amount: Number(m.amount) || 0,
+          commission: Number(m.commission) || 0,
           concept: m.concept || ""
         }))
         : []
     };
   }
 
+  function holdingInvested(h) {
+    const moves = (h.movements || []).reduce((s, m) => s + (Number(m.amount) || 0), 0);
+    return (Number(h.invested) || 0) + moves;
+  }
+
+  function holdingCommission(h) {
+    const moves = (h.movements || []).reduce((s, m) => s + (Number(m.commission) || 0), 0);
+    return (Number(h.commission) || 0) + moves;
+  }
+
+  // Rendimiento = disponible − capital aportado − comisiones (costo)
+  function holdingReturns(h) {
+    return (Number(h.available) || 0) - holdingInvested(h) - holdingCommission(h);
+  }
+
   function normalizeInvestment(row) {
     let type = row.type;
     if (type === "general") type = "bolsa";
     if (!INVEST_TYPES.some((t) => t.id === type)) type = "cdt";
+    const termDays = row.termDays != null
+      ? Math.max(1, Number(row.termDays) || 180)
+      : Math.max(1, (Number(row.termMonths) || 6) * 30);
     const interestRatePct = row.interestRatePct != null
       ? Number(row.interestRatePct) || 0
       : (Number(row.interestAmount) && Number(row.initialAmount)
-        ? (Number(row.interestAmount) / Number(row.initialAmount)) * (12 / Math.max(1, Number(row.termMonths) || 12)) * 100
+        ? (Number(row.interestAmount) / Number(row.initialAmount)) * (365 / termDays) * 100
         : 0);
+    const payout = row.interestPayout === "mensual" ? "mensual" : "final";
     return {
       id: row.id || uid(),
       name: row.name || "Producto",
@@ -115,10 +134,12 @@
       initialAmount: Number(row.initialAmount) || 0,
       openYear: Number(row.openYear) || new Date().getFullYear(),
       openMonth: row.openMonth || "01",
+      openDay: Math.min(31, Math.max(1, Number(row.openDay) || 1)),
       interestRatePct,
+      interestPayout: payout,
       taxPct: row.taxPct == null ? DEFAULT_TAX_PCT : Number(row.taxPct),
       annualYieldPct: Number(row.annualYieldPct) || 0,
-      termMonths: Math.max(1, Number(row.termMonths) || 12),
+      termDays,
       holdings: Array.isArray(row.holdings) ? row.holdings.map(normalizeHolding) : []
     };
   }
@@ -308,35 +329,88 @@
     return initial + potFlow(kind, id);
   }
 
+  // Saldo al cierre de untilYear (incluye capital inicial + flujos de ese año y anteriores)
   function potTotalUntil(kind, id, untilYear) {
     const pot = kind === "saving"
       ? state.savings.find((item) => item.id === id)
       : state.investments.find((item) => item.id === id);
     if (kind === "investment" && pot && pot.type === "bolsa") {
-      const holdings = pot.holdings || [];
-      return holdings.reduce((acc, h) => {
-        const base = Number(h.invested) || 0;
-        const moves = (h.movements || [])
-          .filter((m) => Number(m.year) <= untilYear)
-          .reduce((s, m) => s + (Number(m.amount) || 0), 0);
-        return acc + base + moves;
-      }, 0);
+      return bolsaStockUntil(pot, untilYear);
     }
     const initial = pot ? (Number(pot.initialAmount) || 0) : 0;
     return initial + potFlow(kind, id, untilYear);
   }
 
+  function bolsaStockUntil(pot, untilYear) {
+    return (pot.holdings || []).reduce((acc, h) => {
+      const base = Number(h.invested) || 0;
+      const moves = (h.movements || [])
+        .filter((m) => Number(m.year) <= untilYear)
+        .reduce((s, m) => s + (Number(m.amount) || 0), 0);
+      return acc + base + moves;
+    }, 0);
+  }
+
+  // Solo flujos de años estrictamente anteriores (sin capital inicial)
+  function potFlowBeforeYear(kind, id, year) {
+    return potFlow(kind, id, year - 1);
+  }
+
   function carryInTotals(year) {
-    const prev = year - 1;
     let savings = 0;
     let investments = 0;
+    let savingsInitial = 0;
+    let investmentsInitial = 0;
     state.savings.filter((s) => matchesBank(s.bankId)).forEach((s) => {
-      savings += potTotalUntil("saving", s.id, prev);
+      savingsInitial += Number(s.initialAmount) || 0;
+      savings += potFlowBeforeYear("saving", s.id, year);
     });
     state.investments.filter((s) => matchesBank(s.bankId)).forEach((s) => {
-      investments += potTotalUntil("investment", s.id, prev);
+      if (s.type === "bolsa") {
+        investmentsInitial += (s.holdings || []).reduce((acc, h) => acc + (Number(h.invested) || 0), 0);
+        investments += (s.holdings || []).reduce((acc, h) => acc + (h.movements || [])
+          .filter((m) => Number(m.year) < year)
+          .reduce((sum, m) => sum + (Number(m.amount) || 0), 0), 0);
+      } else {
+        investmentsInitial += Number(s.initialAmount) || 0;
+        investments += potFlowBeforeYear("investment", s.id, year);
+      }
     });
-    return { savings, investments, total: savings + investments };
+    return {
+      savings,
+      investments,
+      savingsInitial,
+      investmentsInitial,
+      opening: savingsInitial + investmentsInitial,
+      priorFlow: savings + investments,
+      total: savingsInitial + investmentsInitial + savings + investments
+    };
+  }
+
+  function patrimonioBreakdown(year) {
+    const accounts = patrimonioVisibleInYear(year)
+      .filter((acc) => matchesBank(acc.bankId))
+      .reduce((sum, acc) => sum + (Number(acc.openingBalance) || 0), 0);
+    const savings = state.savings
+      .filter((s) => matchesBank(s.bankId))
+      .reduce((sum, s) => sum + potTotalUntil("saving", s.id, year), 0);
+    const investments = state.investments
+      .filter((s) => matchesBank(s.bankId))
+      .reduce((sum, s) => {
+        if (s.type === "bolsa") return sum + bolsaTotals(s).available;
+        if (s.type === "cdt") {
+          const snap = investmentSnapshot(s);
+          return sum + (snap.available || Number(s.initialAmount) || 0);
+        }
+        const snap = investmentSnapshot(s);
+        return sum + (snap.available != null ? snap.available : potTotalUntil("investment", s.id, year));
+      }, 0);
+    return {
+      accounts,
+      savings,
+      investments,
+      total: accounts + savings + investments
+    };
   }
 
   function filteredAccounts() {
@@ -344,7 +418,7 @@
   }
 
   function patrimonioTotal() {
-    return filteredAccounts().reduce((sum, acc) => sum + (Number(acc.openingBalance) || 0), 0);
+    return patrimonioBreakdown(state.viewYear).total;
   }
 
   function patrimonioVisibleInYear(year) {
@@ -595,8 +669,7 @@
   function renderOverview() {
     const totals = yearTotals(state.viewYear);
     const carry = carryInTotals(state.viewYear);
-    const patrimonio = patrimonioVisibleInYear(state.viewYear)
-      .reduce((sum, acc) => sum + (Number(acc.openingBalance) || 0), 0);
+    const patrimonio = patrimonioBreakdown(state.viewYear);
     const rate = totals.income > 0 ? ((totals.income - totals.expense) / totals.income) * 100 : 0;
     const filterNote = state.bankFilter === "all"
       ? "Todos los bancos"
@@ -605,15 +678,15 @@
         : bankName(state.bankFilter);
 
     document.getElementById("year-metrics").replaceChildren(
-      metric("Patrimonio registrado", money(patrimonio), `${filterNote} · no es ingreso del mes`),
+      metric("Patrimonio total", money(patrimonio.total), `${filterNote} · cuentas ${money(patrimonio.accounts)}`),
       metric("Ingresos del año", money(totals.income), `${state.viewYear}`),
       metric("Egresos del año", money(totals.egresos), "Gastos del día a día"),
       metric(
         "Ahorros e inversiones",
-        money(totals.ahorros + totals.inversiones),
-        carry.total > 0
-          ? `Arrastre ${money(carry.total)} · año ${money(totals.ahorros + totals.inversiones)}`
-          : `Ahorros ${money(totals.ahorros)} · Inv. ${money(totals.inversiones)}`
+        money(patrimonio.savings + patrimonio.investments),
+        carry.priorFlow > 0
+          ? `Stock actual · arrastre flujos ${money(carry.priorFlow)}`
+          : `Ahorros ${money(patrimonio.savings)} · Inv. ${money(patrimonio.investments)}`
       ),
       metric("Balance del flujo", money(totals.balance), `Tasa de ahorro ${Norte.formatPct(rate)}`, totals.balance >= 0 ? "positive" : "negative")
     );
@@ -666,6 +739,25 @@
       const card = document.createElement("article");
       card.className = "saving-card saving-card-rich";
 
+      const paintTotals = () => {
+        const total = potTotal("saving", pot.id);
+        const carryFlow = potFlowBeforeYear("saving", pot.id, state.viewYear);
+        const strong = card.querySelector("[data-saving-total]");
+        const meta = card.querySelector("[data-saving-meta]");
+        const fill = card.querySelector(".progress span");
+        if (strong) strong.textContent = money(total);
+        if (meta) {
+          meta.textContent = carryFlow > 0
+            ? `Arrastre de flujos ${money(carryFlow)} · total ${money(total)}`
+            : (pot.target ? `${Norte.formatPct(Math.min((total / pot.target) * 100, 999))} de la meta` : "Sin meta");
+        }
+        if (fill) {
+          fill.style.width = pot.target
+            ? `${Math.min(100, (total / pot.target) * 100)}%`
+            : (total > 0 ? "100%" : "0%");
+        }
+      };
+
       const nameField = document.createElement("div");
       nameField.className = "field";
       nameField.append(
@@ -687,36 +779,32 @@
       );
 
       const initialField = document.createElement("div");
-      initialField.className = "field";
+      initialField.className = "field field-money";
       initialField.append(
         Object.assign(document.createElement("label"), { textContent: "Saldo inicial" }),
-        makeInput(pot.initialAmount || "", (input) => {
-          pot.initialAmount = Number.parseFloat(input.value) || 0;
-          renderSavings();
-        }, { type: "number", min: "0", step: "any", placeholder: "0" })
+        moneyField(pot.initialAmount, (val) => {
+          pot.initialAmount = val;
+          paintTotals();
+        })
       );
 
       const targetField = document.createElement("div");
-      targetField.className = "field";
+      targetField.className = "field field-money field-meta";
       targetField.append(
         Object.assign(document.createElement("label"), { textContent: "Meta" }),
-        makeInput(pot.target || "", (input) => {
-          pot.target = Number.parseFloat(input.value) || 0;
-          renderSavings();
-        }, { type: "number", min: "0", step: "any", placeholder: "0" })
+        moneyField(pot.target, (val) => {
+          pot.target = val;
+          paintTotals();
+        })
       );
 
-      const total = potTotal("saving", pot.id);
-      const carry = potTotalUntil("saving", pot.id, state.viewYear - 1);
       const done = document.createElement("div");
       done.className = "field";
       const strong = document.createElement("strong");
-      strong.textContent = money(total);
+      strong.dataset.savingTotal = "1";
       const meta = document.createElement("div");
       meta.className = "saving-meta";
-      meta.textContent = carry > 0
-        ? `Arrastre ${money(carry)} · total acumulado`
-        : (pot.target ? `${Norte.formatPct(Math.min((total / pot.target) * 100, 999))} de la meta` : "Sin meta");
+      meta.dataset.savingMeta = "1";
       done.append(
         Object.assign(document.createElement("label"), { textContent: "Acumulado" }),
         strong,
@@ -725,11 +813,7 @@
 
       const bar = document.createElement("div");
       bar.className = "progress";
-      const fill = document.createElement("span");
-      fill.style.width = pot.target
-        ? `${Math.min(100, (total / pot.target) * 100)}%`
-        : (total > 0 ? "100%" : "0%");
-      bar.appendChild(fill);
+      bar.appendChild(document.createElement("span"));
 
       card.append(nameField, bankField, initialField, targetField, done, removeButton(() => {
         state.savings.splice(index, 1);
@@ -740,6 +824,7 @@
         });
         render();
       }), bar);
+      paintTotals();
       box.appendChild(card);
     });
   }
@@ -828,11 +913,10 @@
   function bolsaTotals(pot) {
     const holdings = pot.holdings || [];
     return holdings.reduce((acc, h) => {
-      const moveSum = (h.movements || []).reduce((s, m) => s + (Number(m.amount) || 0), 0);
-      acc.invested += (Number(h.invested) || 0) + moveSum;
+      acc.invested += holdingInvested(h);
       acc.available += Number(h.available) || 0;
-      acc.commission += Number(h.commission) || 0;
-      acc.returns += Number(h.returns) || 0;
+      acc.commission += holdingCommission(h);
+      acc.returns += holdingReturns(h);
       return acc;
     }, { invested: 0, available: 0, commission: 0, returns: 0 });
   }
@@ -841,11 +925,52 @@
     return Number(year) * 12 + (Number(month) - 1);
   }
 
+  function dayOptions() {
+    return Array.from({ length: 31 }, (_, i) => ({
+      value: String(i + 1),
+      label: String(i + 1)
+    }));
+  }
+
+  function cdtOpenDate(pot) {
+    const year = Number(pot.openYear) || now.getFullYear();
+    const month = Math.max(1, Math.min(12, Number(pot.openMonth) || 1)) - 1;
+    const day = Math.max(1, Math.min(31, Number(pot.openDay) || 1));
+    return new Date(year, month, day);
+  }
+
+  function cdtMaturityDate(pot) {
+    const open = cdtOpenDate(pot);
+    const days = Math.max(1, Number(pot.termDays) || 180);
+    const mature = new Date(open);
+    mature.setDate(mature.getDate() + days);
+    return mature;
+  }
+
   function cdtGrossInterest(pot) {
     const capital = Number(pot.initialAmount) || 0;
     const rate = (Number(pot.interestRatePct) || 0) / 100;
-    const term = Math.max(1, Number(pot.termMonths) || 12);
-    return capital * rate * (term / 12);
+    const days = Math.max(1, Number(pot.termDays) || 180);
+    return capital * rate * (days / 365);
+  }
+
+  function monthsBetweenInclusive(start, end) {
+    const rows = [];
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+    const last = new Date(end.getFullYear(), end.getMonth(), 1);
+    while (cursor <= last) {
+      rows.push({
+        year: cursor.getFullYear(),
+        month: monthKey(cursor.getMonth()),
+        label: `${MONTHS[cursor.getMonth()]} ${cursor.getFullYear()}`
+      });
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    return rows.length ? rows : [{
+      year: start.getFullYear(),
+      month: monthKey(start.getMonth()),
+      label: `${MONTHS[start.getMonth()]} ${start.getFullYear()}`
+    }];
   }
 
   function buildInvestSchedule(pot) {
@@ -860,26 +985,41 @@
       const grossInterest = cdtGrossInterest(pot);
       const tax = grossInterest * ((Number(pot.taxPct) || 0) / 100);
       const netInterest = grossInterest - tax;
-      const term = Math.max(1, Number(pot.termMonths) || 12);
-      for (let i = 0; i < term; i += 1) {
-        const absolute = start + i;
-        const year = Math.floor(absolute / 12);
-        const month = (absolute % 12) + 1;
-        const progress = (i + 1) / term;
-        const accrued = netInterest * progress;
+      const open = cdtOpenDate(pot);
+      const mature = cdtMaturityDate(pot);
+      const periods = monthsBetweenInclusive(open, mature);
+      const payout = pot.interestPayout === "mensual" ? "mensual" : "final";
+      const n = periods.length;
+
+      periods.forEach((period, i) => {
+        const isLast = i === n - 1;
+        let gross = 0;
+        let net = 0;
+        if (payout === "mensual") {
+          gross = grossInterest / n;
+          net = netInterest / n;
+        } else if (isLast) {
+          gross = grossInterest;
+          net = netInterest;
+        }
+        const accruedGross = payout === "mensual" ? grossInterest * ((i + 1) / n) : (isLast ? grossInterest : 0);
+        const accruedNet = payout === "mensual" ? netInterest * ((i + 1) / n) : (isLast ? netInterest : 0);
         rows.push({
-          year,
-          month: monthKey(month - 1),
-          label: `${MONTHS[month - 1]} ${year}`,
+          year: period.year,
+          month: period.month,
+          label: period.label + (i === 0 ? ` · día ${pot.openDay}` : "") + (isLast ? " · vencimiento" : ""),
           invested: capital,
           commission: 0,
-          available: capital + accrued,
-          returns: accrued,
-          note: i === term - 1
-            ? `Interés bruto ${money(grossInterest)} · ${Norte.formatPct(pot.interestRatePct)} EA · impuesto ${Norte.formatPct(pot.taxPct)}`
-            : ""
+          availableGross: capital + accruedGross,
+          available: capital + accruedNet,
+          returnsGross: accruedGross,
+          returns: accruedNet,
+          tax: accruedGross - accruedNet,
+          periodGross: gross,
+          periodNet: net,
+          note: payout === "mensual" ? "Interés del mes" : (isLast ? "Pago al vencimiento" : "Sin pago este mes")
         });
-      }
+      });
       return rows;
     }
 
@@ -915,21 +1055,19 @@
       return rows;
     }
 
-    // bolsa: one row per holding (+ movements summary)
     (pot.holdings || []).forEach((h) => {
-      const moveSum = (h.movements || []).reduce((s, m) => s + (Number(m.amount) || 0), 0);
       const kindLabel = (BOLSA_KINDS.find((k) => k.id === h.kind) || BOLSA_KINDS[0]).label;
       rows.push({
         year: pot.openYear,
         month: pot.openMonth,
         label: `${kindLabel}${h.name ? ` · ${h.name}` : ""}`,
-        invested: (Number(h.invested) || 0) + moveSum,
-        commission: Number(h.commission) || 0,
+        invested: holdingInvested(h),
+        commission: holdingCommission(h),
         available: Number(h.available) || 0,
-        returns: Number(h.returns) || 0,
+        returns: holdingReturns(h),
         note: (h.movements || []).length
-          ? `${(h.movements || []).length} aporte(s) irregulares`
-          : ""
+          ? `${(h.movements || []).length} aporte(s)`
+          : "Sin aportes extra"
       });
     });
     return rows;
@@ -939,31 +1077,39 @@
     const schedule = buildInvestSchedule(pot);
     const last = pot.type === "bolsa"
       ? bolsaTotals(pot)
-      : (schedule.at(-1) || { invested: 0, commission: 0, available: 0, returns: 0 });
+      : (schedule.at(-1) || { invested: 0, commission: 0, available: 0, returns: 0, returnsGross: 0 });
 
-    const commissionSub = pot.type === "bolsa"
-      ? "Valor fijo por posición"
-      : "Sin comisión en este producto";
-
-    document.getElementById("invest-metrics").replaceChildren(
-      metric("Dinero invertido", money(last.invested), pot.type === "bolsa" ? "Capital + aportes por posición" : "Capital + aportes"),
-      metric("Comisión", money(last.commission), commissionSub),
-      metric("Dinero disponible", money(last.available), pot.type === "bolsa" ? "Según cada posición" : "Capital + rendimientos netos"),
-      metric("Rendimientos", money(last.returns), pot.type === "cdt"
-        ? `${Norte.formatPct(pot.interestRatePct)} · impuesto ${Norte.formatPct(pot.taxPct)}`
-        : pot.type === "alta_rentabilidad"
-          ? `${Norte.formatPct(pot.annualYieldPct, 2)} anual`
-          : "Por posición en bolsa")
-    );
+    if (pot.type === "cdt") {
+      const gross = cdtGrossInterest(pot);
+      const tax = gross * ((Number(pot.taxPct) || 0) / 100);
+      const net = gross - tax;
+      document.getElementById("invest-metrics").replaceChildren(
+        metric("Capital", money(Number(pot.initialAmount) || 0), `${Number(pot.termDays) || 0} días · abre día ${pot.openDay}`),
+        metric("Rendimiento bruto", money(gross), `Sin impuesto · ${Norte.formatPct(pot.interestRatePct, 2)} EA`),
+        metric("Impuesto", money(tax), `${Norte.formatPct(pot.taxPct)} retención`),
+        metric("Rendimiento neto", money(net), pot.interestPayout === "mensual" ? "Pago mes a mes" : "Pago al vencimiento")
+      );
+    } else {
+      document.getElementById("invest-metrics").replaceChildren(
+        metric("Dinero invertido", money(last.invested), pot.type === "bolsa" ? "Capital + aportes" : "Capital + aportes"),
+        metric("Comisión", money(last.commission), pot.type === "bolsa" ? "Valor fijo (posición + aportes)" : "—"),
+        metric("Dinero disponible", money(last.available), pot.type === "bolsa" ? "Valor actual" : "Capital + rendimientos"),
+        metric("Rendimientos", money(last.returns), pot.type === "bolsa"
+          ? "Disponible − invertido − comisión"
+          : `${Norte.formatPct(pot.annualYieldPct, 2)} anual`)
+      );
+    }
 
     const head = document.getElementById("invest-table-head");
     const body = document.getElementById("invest-table-body");
     head.replaceChildren();
     body.replaceChildren();
     const hr = document.createElement("tr");
-    const cols = pot.type === "bolsa"
-      ? ["Posición", "Invertido", "Comisión", "Disponible", "Rendimientos"]
-      : ["Mes", "Invertido", "Comisión", "Disponible", "Rendimientos"];
+    const cols = pot.type === "cdt"
+      ? ["Periodo", "Invertido", "Rend. bruto", "Impuesto", "Rend. neto", "Disp. neto"]
+      : pot.type === "bolsa"
+        ? ["Posición", "Invertido", "Comisión", "Disponible", "Rendimientos"]
+        : ["Mes", "Invertido", "Comisión", "Disponible", "Rendimientos"];
     cols.forEach((text) => {
       const th = document.createElement("th");
       th.textContent = text;
@@ -974,7 +1120,7 @@
     if (!schedule.length) {
       const tr = document.createElement("tr");
       const td = document.createElement("td");
-      td.colSpan = 5;
+      td.colSpan = cols.length;
       td.style.textAlign = "left";
       td.textContent = pot.type === "bolsa"
         ? "Añade un ETF, acción o cripto para ver el detalle."
@@ -986,13 +1132,15 @@
 
     schedule.forEach((row) => {
       const tr = document.createElement("tr");
-      [row.label, money(row.invested), money(row.commission), money(row.available), money(row.returns)]
-        .forEach((text, idx) => {
-          const td = document.createElement("td");
-          td.textContent = text;
-          if (idx === 0) td.style.textAlign = "left";
-          tr.appendChild(td);
-        });
+      const cells = pot.type === "cdt"
+        ? [row.label, money(row.invested), money(row.returnsGross || 0), money(row.tax || 0), money(row.returns || 0), money(row.available || 0)]
+        : [row.label, money(row.invested), money(row.commission), money(row.available), money(row.returns)];
+      cells.forEach((text, idx) => {
+        const td = document.createElement("td");
+        td.textContent = text;
+        if (idx === 0) td.style.textAlign = "left";
+        tr.appendChild(td);
+      });
       body.appendChild(tr);
     });
   }
@@ -1022,7 +1170,7 @@
       Object.assign(document.createElement("h2"), { textContent: "Posiciones en bolsa" }),
       Object.assign(document.createElement("p"), {
         className: "faint",
-        textContent: "ETF, acciones o cripto. Comisión en pesos. Aportes mes a mes cuando quieras."
+        textContent: "Rendimiento = disponible − invertido − comisión. Los aportes llevan monto y comisión del mes."
       })
     );
     const addBtn = document.createElement("button");
@@ -1081,6 +1229,8 @@
         moneyField(holding.invested, (val) => {
           holding.invested = val;
           updateInvestSide(pot);
+          const ret = card.querySelector("[data-holding-returns]");
+          if (ret) ret.textContent = money(holdingReturns(holding));
         })
       );
 
@@ -1091,27 +1241,35 @@
         moneyField(holding.available, (val) => {
           holding.available = val;
           updateInvestSide(pot);
+          const ret = card.querySelector("[data-holding-returns]");
+          if (ret) ret.textContent = money(holdingReturns(holding));
         })
       );
 
       const commissionField = document.createElement("div");
       commissionField.className = "field field-money";
       commissionField.append(
-        Object.assign(document.createElement("label"), { textContent: "Comisión (valor)" }),
+        Object.assign(document.createElement("label"), { textContent: "Comisión base (valor)" }),
         moneyField(holding.commission, (val) => {
           holding.commission = val;
           updateInvestSide(pot);
+          const ret = card.querySelector("[data-holding-returns]");
+          if (ret) ret.textContent = money(holdingReturns(holding));
         })
       );
 
       const returnsField = document.createElement("div");
-      returnsField.className = "field field-money";
+      returnsField.className = "field";
+      const returnsValue = document.createElement("strong");
+      returnsValue.dataset.holdingReturns = "1";
+      returnsValue.textContent = money(holdingReturns(holding));
+      const returnsHint = document.createElement("div");
+      returnsHint.className = "saving-meta";
+      returnsHint.textContent = "Calculado: disponible − invertido − comisión";
       returnsField.append(
         Object.assign(document.createElement("label"), { textContent: "Rendimientos" }),
-        moneyField(holding.returns, (val) => {
-          holding.returns = val;
-          updateInvestSide(pot);
-        })
+        returnsValue,
+        returnsHint
       );
 
       grid.append(kindField, nameField, investedField, availableField, commissionField, returnsField);
@@ -1137,6 +1295,7 @@
               year: state.viewYear,
               month: monthKey(now.getMonth()),
               amount: 0,
+              commission: 0,
               concept: ""
             });
             renderInvestDetail();
@@ -1149,12 +1308,21 @@
       if (!holding.movements.length) {
         const hint = document.createElement("p");
         hint.className = "empty-note";
-        hint.textContent = "No hay un monto fijo cada mes: registra solo los meses en los que aportaste.";
+        hint.textContent = "Registra solo los meses en los que aportaste: monto y comisión de ese aporte.";
         moves.appendChild(hint);
       } else {
+        const legend = document.createElement("div");
+        legend.className = "move-legend";
+        ["Año", "Mes", "Monto aportado", "Comisión", "Concepto", ""].forEach((text) => {
+          const span = document.createElement("span");
+          span.textContent = text;
+          legend.appendChild(span);
+        });
+        moves.appendChild(legend);
+
         holding.movements.forEach((mov, mIndex) => {
           const row = document.createElement("div");
-          row.className = "row holding-move-row";
+          row.className = "holding-move-row";
           row.append(
             makeSelect(String(mov.year), allYearsList().map((y) => ({ value: String(y), label: String(y) })), (value) => {
               mov.year = Number(value);
@@ -1167,6 +1335,14 @@
             moneyField(mov.amount, (val) => {
               mov.amount = val;
               updateInvestSide(pot);
+              const ret = card.querySelector("[data-holding-returns]");
+              if (ret) ret.textContent = money(holdingReturns(holding));
+            }),
+            moneyField(mov.commission, (val) => {
+              mov.commission = val;
+              updateInvestSide(pot);
+              const ret = card.querySelector("[data-holding-returns]");
+              if (ret) ret.textContent = money(holdingReturns(holding));
             }),
             makeInput(mov.concept, (input) => {
               mov.concept = input.value;
@@ -1196,15 +1372,17 @@
     document.getElementById("invest-title").textContent = pot.name || "Producto";
     document.getElementById("invest-lede").textContent =
       pot.type === "cdt"
-        ? "CDT: indica el % de interés y el plazo; el sistema calcula intereses e impuesto."
+        ? "CDT: % de interés, plazo en días, día de apertura y si cobras intereses mes a mes o al vencimiento."
         : pot.type === "alta_rentabilidad"
           ? "Alta rentabilidad: % anual (admite decimales) y proyección mes a mes con tus aportes reales."
           : "Bolsa: posiciones ETF, acciones o cripto, con aportes irregulares mes a mes.";
 
     document.getElementById("invest-table-hint").textContent =
-      pot.type === "bolsa"
-        ? "Resumen por posición: invertido, comisión (valor), disponible y rendimientos"
-        : "Tabla mes a mes: invertido, comisión, disponible y rendimientos";
+      pot.type === "cdt"
+        ? "Tabla con rendimiento bruto, impuesto y neto según el tipo de pago"
+        : pot.type === "bolsa"
+          ? "Resumen por posición: invertido, comisión, disponible y rendimientos calculados"
+          : "Tabla mes a mes: invertido, comisión, disponible y rendimientos";
 
     const form = document.getElementById("invest-form");
     form.replaceChildren();
@@ -1238,6 +1416,13 @@
       updateInvestSide(pot);
     }));
 
+    if (pot.type === "cdt") {
+      addField("Día de apertura", makeSelect(String(pot.openDay || 1), dayOptions(), (value) => {
+        pot.openDay = Number(value) || 1;
+        updateInvestSide(pot);
+      }));
+    }
+
     addField("Año de apertura", makeInput(pot.openYear || "", (input) => {
       pot.openYear = Number.parseInt(input.value, 10) || now.getFullYear();
       updateInvestSide(pot);
@@ -1259,17 +1444,25 @@
         pot.taxPct = Number.isFinite(val) ? val : DEFAULT_TAX_PCT;
         updateInvestSide(pot);
       }));
-      addField("Plazo (meses)", makeInput(pot.termMonths || "", (input) => {
-        pot.termMonths = Math.max(1, Number.parseInt(input.value, 10) || 12);
+      addField("Plazo (días)", makeInput(pot.termDays || "", (input) => {
+        pot.termDays = Math.max(1, Number.parseInt(input.value, 10) || 180);
         updateInvestSide(pot);
       }, { type: "number", min: "1", step: "1" }));
+      addField("Pago de intereses", makeSelect(pot.interestPayout || "final", [
+        { value: "final", label: "Al vencimiento del CDT" },
+        { value: "mensual", label: "Mes a mes" }
+      ], (value) => {
+        pot.interestPayout = value;
+        updateInvestSide(pot);
+      }));
 
       const preview = document.createElement("p");
       preview.className = "saving-meta";
       preview.id = "cdt-preview";
       const gross = cdtGrossInterest(pot);
       const tax = gross * ((Number(pot.taxPct) || 0) / 100);
-      preview.textContent = `Interés bruto estimado ${money(gross)} · neto tras impuesto ${money(gross - tax)}`;
+      const mature = cdtMaturityDate(pot);
+      preview.textContent = `Bruto ${money(gross)} · impuesto ${money(tax)} · neto ${money(gross - tax)} · vence ${mature.getDate()}/${mature.getMonth() + 1}/${mature.getFullYear()}`;
       card.appendChild(preview);
     }
 
@@ -1298,37 +1491,112 @@
         const syncPreview = () => {
           const gross = cdtGrossInterest(pot);
           const tax = gross * ((Number(pot.taxPct) || 0) / 100);
-          preview.textContent = `Interés bruto estimado ${money(gross)} · neto tras impuesto ${money(gross - tax)}`;
+          const mature = cdtMaturityDate(pot);
+          preview.textContent = `Bruto ${money(gross)} · impuesto ${money(tax)} · neto ${money(gross - tax)} · vence ${mature.getDate()}/${mature.getMonth() + 1}/${mature.getFullYear()}`;
         };
-        card.querySelectorAll("input").forEach((input) => {
+        card.querySelectorAll("input, select").forEach((input) => {
           input.addEventListener("input", syncPreview);
+          input.addEventListener("change", syncPreview);
         });
       }
     }
   }
 
+  function renderPatrimonioMetrics(metricsBox) {
+    const p = patrimonioBreakdown(state.viewYear);
+    metricsBox.replaceChildren(
+      metric("Patrimonio total", money(p.total), "Cuentas + ahorros + inversiones"),
+      metric("Cuentas bancarias", money(p.accounts), "Saldos iniciales (liquidez)"),
+      metric("Ahorros", money(p.savings), "Acumulado actual"),
+      metric("Inversiones", money(p.investments), "Valor disponible actual")
+    );
+  }
+
   function renderPatrimonio() {
     const box = document.getElementById("accounts-list");
     const metricsBox = document.getElementById("patrimonio-metrics");
-    const accounts = patrimonioVisibleInYear(state.viewYear).filter((acc) => matchesBank(acc.bankId));
-    const total = accounts.reduce((sum, acc) => sum + (Number(acc.openingBalance) || 0), 0);
-    const byBank = {};
-    accounts.forEach((acc) => {
-      const key = acc.bankId || "none";
-      byBank[key] = (byBank[key] || 0) + (Number(acc.openingBalance) || 0);
-    });
-
-    metricsBox.replaceChildren(
-      metric("Total patrimonio", money(total), "Saldos iniciales registrados"),
-      metric("Cuentas", String(accounts.length), "Visibles con el filtro actual"),
-      metric(
-        "Bancos con saldo",
-        String(Object.keys(byBank).length),
-        Object.entries(byBank).slice(0, 2).map(([id, value]) => `${id === "none" ? "Sin banco" : bankName(id)} ${money(value)}`).join(" · ") || "—"
-      )
-    );
+    renderPatrimonioMetrics(metricsBox);
 
     box.replaceChildren();
+
+    const linked = document.createElement("section");
+    linked.className = "patrimonio-linked";
+    const linkedTitle = document.createElement("h3");
+    linkedTitle.textContent = "Incluido en el patrimonio";
+    linked.appendChild(linkedTitle);
+    const linkedGrid = document.createElement("div");
+    linkedGrid.className = "patrimonio-linked-grid";
+
+    const savingsPart = document.createElement("div");
+    savingsPart.className = "linked-block";
+    const sHead = document.createElement("p");
+    sHead.className = "faint";
+    sHead.textContent = "Ahorros";
+    savingsPart.appendChild(sHead);
+    const savingsList = state.savings.filter((s) => matchesBank(s.bankId));
+    if (!savingsList.length) {
+      savingsPart.appendChild(Object.assign(document.createElement("p"), {
+        className: "empty-note",
+        textContent: "Sin ahorros todavía."
+      }));
+    } else {
+      savingsList.forEach((s) => {
+        const row = document.createElement("div");
+        row.className = "linked-row";
+        row.append(
+          Object.assign(document.createElement("span"), { textContent: s.name || "Ahorro" }),
+          Object.assign(document.createElement("strong"), { textContent: money(potTotal("saving", s.id)) })
+        );
+        savingsPart.appendChild(row);
+      });
+    }
+
+    const investPart = document.createElement("div");
+    investPart.className = "linked-block";
+    const iHead = document.createElement("p");
+    iHead.className = "faint";
+    iHead.textContent = "Inversiones";
+    investPart.appendChild(iHead);
+    const investList = state.investments.filter((s) => matchesBank(s.bankId));
+    if (!investList.length) {
+      investPart.appendChild(Object.assign(document.createElement("p"), {
+        className: "empty-note",
+        textContent: "Sin inversiones todavía."
+      }));
+    } else {
+      investList.forEach((inv) => {
+        const snap = investmentSnapshot(inv);
+        const row = document.createElement("div");
+        row.className = "linked-row";
+        row.append(
+          Object.assign(document.createElement("span"), {
+            textContent: `${inv.name || "Producto"} · ${investTypeLabel(inv.type)}`
+          }),
+          Object.assign(document.createElement("strong"), { textContent: money(snap.available) })
+        );
+        investPart.appendChild(row);
+      });
+    }
+
+    linkedGrid.append(savingsPart, investPart);
+    linked.appendChild(linkedGrid);
+    const note = document.createElement("p");
+    note.className = "saving-meta";
+    note.textContent = "Si un ahorro ya está dentro del saldo de una cuenta, no lo registres otra vez en cuentas bancarias para no duplicar.";
+    linked.appendChild(note);
+    box.appendChild(linked);
+
+    const accountsHead = document.createElement("div");
+    accountsHead.className = "list-head accounts-subhead";
+    accountsHead.append(
+      Object.assign(document.createElement("h3"), { textContent: "Cuentas bancarias" }),
+      Object.assign(document.createElement("p"), {
+        className: "faint",
+        textContent: "Liquidez en bancos. El saldo inicial no es ingreso del mes."
+      })
+    );
+    box.appendChild(accountsHead);
+
     const allFiltered = state.accounts.filter((acc) => matchesBank(acc.bankId));
     if (!allFiltered.length) {
       const p = document.createElement("p");
@@ -1376,22 +1644,7 @@
         Object.assign(document.createElement("label"), { textContent: "Saldo al iniciar" }),
         moneyField(acc.openingBalance, (val) => {
           acc.openingBalance = val;
-          const liveAccounts = patrimonioVisibleInYear(state.viewYear).filter((a) => matchesBank(a.bankId));
-          const liveTotal = liveAccounts.reduce((sum, a) => sum + (Number(a.openingBalance) || 0), 0);
-          const liveByBank = {};
-          liveAccounts.forEach((a) => {
-            const key = a.bankId || "none";
-            liveByBank[key] = (liveByBank[key] || 0) + (Number(a.openingBalance) || 0);
-          });
-          metricsBox.replaceChildren(
-            metric("Total patrimonio", money(liveTotal), "Saldos iniciales registrados"),
-            metric("Cuentas", String(liveAccounts.length), "Visibles con el filtro actual"),
-            metric(
-              "Bancos con saldo",
-              String(Object.keys(liveByBank).length),
-              Object.entries(liveByBank).slice(0, 2).map(([id, value]) => `${id === "none" ? "Sin banco" : bankName(id)} ${money(value)}`).join(" · ") || "—"
-            )
-          );
+          renderPatrimonioMetrics(metricsBox);
         })
       );
 
@@ -1413,9 +1666,9 @@
         }, { type: "number", step: "1" })
       );
 
-      const note = document.createElement("p");
-      note.className = "saving-meta account-note";
-      note.textContent = `Corte ${MONTHS[Number(acc.openingMonth) - 1] || "?"} ${acc.openingYear} · no cuenta como ingreso`;
+      const noteLine = document.createElement("p");
+      noteLine.className = "saving-meta account-note";
+      noteLine.textContent = `Corte ${MONTHS[Number(acc.openingMonth) - 1] || "?"} ${acc.openingYear} · no cuenta como ingreso`;
 
       const remove = removeButton(() => {
         state.accounts.splice(index, 1);
@@ -1423,7 +1676,7 @@
       });
       remove.classList.add("account-remove");
 
-      card.append(nameField, bankField, typeField, balField, monthField, yearField, note, remove);
+      card.append(nameField, bankField, typeField, balField, monthField, yearField, noteLine, remove);
       box.appendChild(card);
     });
   }
@@ -1485,9 +1738,14 @@
     const box = document.getElementById("invoice");
     box.replaceChildren();
     const totals = yearTotals(state.viewYear);
-    const patrimonio = patrimonioVisibleInYear(state.viewYear)
-      .reduce((sum, acc) => sum + (Number(acc.openingBalance) || 0), 0);
+    const patrimonio = patrimonioBreakdown(state.viewYear);
     const carry = carryInTotals(state.viewYear);
+    const savingsStock = state.savings
+      .filter((s) => matchesBank(s.bankId))
+      .reduce((sum, s) => sum + potTotal("saving", s.id), 0);
+    const investStock = state.investments
+      .filter((s) => matchesBank(s.bankId))
+      .reduce((sum, s) => sum + (investmentSnapshot(s).available || potTotal("investment", s.id)), 0);
 
     const head = document.createElement("div");
     head.className = "invoice-head";
@@ -1504,34 +1762,36 @@
     right.style.textAlign = "right";
     const stamp = document.createElement("p");
     stamp.className = "faint";
-    stamp.textContent = "Balance del flujo (sin patrimonio inicial)";
+    stamp.textContent = "Patrimonio total";
     const big = document.createElement("strong");
     big.style.fontFamily = "var(--serif)";
     big.style.fontSize = "1.6rem";
-    big.textContent = money(totals.balance);
+    big.textContent = money(patrimonio.total);
     right.append(stamp, big);
     head.append(left, right);
     box.appendChild(head);
 
-    if (patrimonio > 0 || carry.total > 0) {
-      const preamble = document.createElement("section");
-      preamble.className = "invoice-month";
-      const h3 = document.createElement("h3");
-      h3.textContent = "Posición de partida";
-      preamble.appendChild(h3);
-      if (patrimonio > 0) {
-        addInvoiceRows(preamble, "Patrimonio (saldos iniciales)", [
-          { name: "Cuentas bancarias registradas", amount: patrimonio }
-        ]);
-      }
-      if (carry.total > 0) {
-        addInvoiceRows(preamble, "Arrastre de años anteriores", [
-          { name: "Ahorros", amount: carry.savings },
-          { name: "Inversiones", amount: carry.investments }
-        ]);
-      }
-      box.appendChild(preamble);
+    const preamble = document.createElement("section");
+    preamble.className = "invoice-month";
+    preamble.appendChild(Object.assign(document.createElement("h3"), { textContent: "Posición de partida" }));
+    addInvoiceRows(preamble, "Composición del patrimonio", [
+      { name: "Cuentas bancarias", amount: patrimonio.accounts },
+      { name: "Ahorros acumulados", amount: savingsStock },
+      { name: "Inversiones (valor disponible)", amount: investStock }
+    ].filter((row) => row.amount !== 0));
+    if (carry.opening > 0) {
+      addInvoiceRows(preamble, "Capital inicial (no es ingreso del año)", [
+        { name: "Ahorros · saldo inicial", amount: carry.savingsInitial },
+        { name: "Inversiones · capital inicial", amount: carry.investmentsInitial }
+      ].filter((row) => row.amount !== 0));
     }
+    if (carry.priorFlow > 0) {
+      addInvoiceRows(preamble, "Arrastre de flujos de años anteriores", [
+        { name: "Aportes netos a ahorros", amount: carry.savings },
+        { name: "Aportes a inversiones", amount: carry.investments }
+      ].filter((row) => row.amount !== 0));
+    }
+    box.appendChild(preamble);
 
     let any = false;
     MONTHS.forEach((name, index) => {
@@ -1541,9 +1801,7 @@
       const t = monthTotals(entry);
       const block = document.createElement("section");
       block.className = "invoice-month";
-      const h3 = document.createElement("h3");
-      h3.textContent = name;
-      block.appendChild(h3);
+      block.appendChild(Object.assign(document.createElement("h3"), { textContent: name }));
       addInvoiceRows(block, "Ingresos", entry.incomes || []);
       addInvoiceRows(block, "Egresos", (entry.expenses || []).map((row) => ({
         name: `${row.name || "Gasto"} · ${categoryById(row.category).label}`,
@@ -1572,7 +1830,7 @@
       box.appendChild(block);
     });
 
-    if (!any && patrimonio <= 0 && carry.total <= 0) {
+    if (!any && patrimonio.total <= 0) {
       const empty = document.createElement("p");
       empty.className = "invoice-empty";
       empty.textContent = "Todavía no hay movimientos este año. Empieza por Patrimonio o por la pestaña Meses.";
@@ -1583,12 +1841,14 @@
     const foot = document.createElement("section");
     foot.className = "invoice-foot";
     [
-      ["Patrimonio registrado", patrimonio],
-      ["Ingresos", totals.income],
-      ["Egresos", totals.egresos],
-      ["Ahorros (neto)", totals.ahorros],
-      ["Inversiones", totals.inversiones],
-      ["Balance del flujo", totals.balance]
+      ["Patrimonio total", patrimonio.total],
+      ["Ingresos del año", totals.income],
+      ["Egresos del año", totals.egresos],
+      ["Aportes a ahorros del año (neto)", totals.ahorros],
+      ["Aportes a inversiones del año", totals.inversiones],
+      ["Balance del flujo del año", totals.balance],
+      ["Saldo ahorros acumulado", savingsStock],
+      ["Saldo inversiones acumulado", investStock]
     ].forEach(([label, value]) => {
       const row = document.createElement("div");
       row.className = "invoice-row total";
@@ -1909,11 +2169,10 @@
             kind: "etf",
             name: "VOO",
             invested: 4000000,
-            available: 3950000,
+            available: 4600000,
             commission: 25000,
-            returns: 180000,
             movements: [
-              { id: uid(), year: Number(year), month: "02", amount: 500000, concept: "Aporte febrero" }
+              { id: uid(), year: Number(year), month: "02", amount: 500000, commission: 8000, concept: "Aporte febrero" }
             ]
           },
           {
@@ -1923,7 +2182,6 @@
             invested: 1200000,
             available: 1100000,
             commission: 15000,
-            returns: -80000,
             movements: []
           }
         ]
@@ -1936,7 +2194,9 @@
         initialAmount: 10000000,
         interestRatePct: 13,
         taxPct: 4,
-        termMonths: 6,
+        termDays: 180,
+        openDay: 15,
+        interestPayout: "final",
         openYear: Number(year),
         openMonth: month
       }),
