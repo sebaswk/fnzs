@@ -6,15 +6,22 @@
 }
 
 .pyme-metrics {
-  margin-top: 18px;
+  margin-top: 0;
 }
 
-.pulse-card,
-.range-note {
-  margin-top: 16px;
+#panel-recopilado {
+  display: grid;
+  gap: 16px;
+}
+
+#panel-recopilado .overview-grid,
+#panel-recopilado .pulse-card {
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .range-note {
+  margin-top: 6px;
   margin-bottom: 12px;
 }
 

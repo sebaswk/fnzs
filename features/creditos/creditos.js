@@ -424,9 +424,9 @@
           ? `Ahorras ${Math.max(0, origMonths - boostMonths)} meses`
           : "La cuota baja después de cada abono"
       ),
-      metric("Intereses sin abonos", money(origInterest), `Total pagado ${money(sum(original.rows, "payment"))}`),
+      metric("Intereses si no abonas", money(origInterest), `Total pagado ${money(sum(original.rows, "payment"))}`),
       metric(
-        "Intereses con abonos",
+        "Intereses si abonas",
         money(boostInterest),
         `Ahorras ${money(Math.max(0, origInterest - boostInterest))} en intereses`,
         "positive"

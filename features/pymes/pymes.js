@@ -554,9 +554,9 @@
       metric("Ganancia bruta", money(totals.gross), `Margen ${Norte.formatPct(totals.marginGross)} · ventas menos costos`, totals.gross >= 0 ? "positive" : "negative"),
       metric("Ganancia neta", money(totals.net), `Después de gastos e impuestos ${Norte.formatPct(state.taxRate)}`, totals.net >= 0 ? "positive" : "negative"),
       metric(
-        "Rango con incertidumbre",
+        "Rango de incertidumbre",
         `${money(totals.low)} → ${money(totals.high)}`,
-        `±${Norte.formatPct(state.uncertainty)} sobre la neta`
+        `±${Norte.formatPct(state.uncertainty)} sobre la ganancia neta`
       ),
       metric(
         "Punto de equilibrio",

@@ -91,3 +91,8 @@ input[readonly] {
 .compare-note {
   margin-bottom: 12px;
 }
+
+#panel-recopilado {
+  display: grid;
+  gap: 16px;
+}
