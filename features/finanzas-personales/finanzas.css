@@ -157,13 +157,39 @@
   margin-top: 14px;
 }
 
-.move-block {
-  display: grid;
+.row-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
 }
 
 .gmf-check {
-  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  background: transparent;
+  cursor: pointer;
+}
+
+.gmf-check:has(input:checked) {
+  border-color: var(--sage);
+  color: var(--sage-2);
+}
+
+.gmf-field .gmf-check {
+  height: 46px;
+  padding: 0 14px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 14px;
 }
 
 .transfer-body {
@@ -223,8 +249,37 @@
 }
 
 .transfer-grid .field:nth-child(4),
-.transfer-grid .field:nth-child(5) {
-  grid-column: span 3;
+.transfer-grid .field:nth-child(5),
+.transfer-grid .field:nth-child(6) {
+  grid-column: span 2;
+}
+
+.portfolio-head {
+  align-items: flex-start;
+}
+
+.bank-fold td {
+  background: rgba(239, 232, 220, 0.04);
+}
+
+.bank-fold-btn {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 500;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.portfolio-total td {
+  font-weight: 600;
+  border-bottom: 0;
+}
+
+.portfolio-detail[hidden] {
+  display: none;
 }
 
 .transfer-card .icon-btn {
@@ -806,7 +861,7 @@ button:disabled {
 }
 
 .row.expense {
-  grid-template-columns: minmax(0, 1fr) 150px 120px 40px;
+  grid-template-columns: minmax(0, 1fr) 150px 120px auto;
 }
 
 .row.contrib {
@@ -814,7 +869,7 @@ button:disabled {
 }
 
 .row.contrib-rich {
-  grid-template-columns: minmax(120px, 1fr) 110px 110px minmax(120px, 1.2fr) 40px;
+  grid-template-columns: minmax(120px, 1fr) 110px 110px minmax(120px, 1.2fr) auto;
 }
 
 .row input,

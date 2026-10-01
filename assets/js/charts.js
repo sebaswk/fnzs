@@ -341,9 +341,12 @@
       const swatch = document.createElement("i");
       swatch.style.background = slice.color;
       const label = document.createElement("span");
-      const pct = ((slice.value / total) * 100).toFixed(0);
-      label.textContent = `${slice.label} · ${pct}%`;
-      item.append(swatch, label);
+      label.className = "donut-legend-label";
+      label.textContent = slice.label;
+      const pct = document.createElement("span");
+      pct.className = "donut-legend-pct";
+      pct.textContent = `${((slice.value / total) * 100).toFixed(0)}%`;
+      item.append(swatch, label, pct);
       item.addEventListener("mouseenter", (event) => showSlice(slice, event));
       item.addEventListener("mouseleave", hideTip);
       legend.appendChild(item);

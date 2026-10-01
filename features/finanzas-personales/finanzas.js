@@ -392,33 +392,18 @@
     list[to] = current;
   }
 
-  function gmfForRows(entry) {
-    const active = activeBankId();
-    const sliced = monthViewEntry(entry || emptyMonth());
-    const items = [];
-    (sliced.expenses || []).forEach((row) => {
-      items.push({ amount: Math.abs(Number(row.amount) || 0), exempt: Boolean(row.gmfExempt) });
-    });
-    (sliced.contributions || []).forEach((row) => {
-      items.push({ amount: Math.abs(Number(row.amount) || 0), exempt: Boolean(row.gmfExempt) });
-    });
-    (sliced.investments || []).forEach((row) => {
-      items.push({ amount: Math.abs(Number(row.amount) || 0), exempt: Boolean(row.gmfExempt) });
-    });
-    (sliced.transfers || []).forEach((row) => {
-      if ((row.fromBankId || "") !== active) return;
-      items.push({ amount: Math.abs(Number(row.amount) || 0), exempt: Boolean(row.gmfExempt) });
-    });
+  function gmfCompute(items) {
     let room = GMF_CAP;
     let taxable = 0;
-    items.forEach((item) => {
-      if (!item.amount) return;
+    (items || []).forEach((item) => {
+      const amount = Math.abs(Number(item.amount) || 0);
+      if (!amount) return;
       if (item.exempt) {
-        const free = Math.min(item.amount, Math.max(0, room));
+        const free = Math.min(amount, Math.max(0, room));
         room -= free;
-        taxable += item.amount - free;
+        taxable += amount - free;
       } else {
-        taxable += item.amount;
+        taxable += amount;
       }
     });
     return {
@@ -426,6 +411,48 @@
       taxable,
       exemptUsed: GMF_CAP - room
     };
+  }
+
+  function gmfBuckets(entry) {
+    const buckets = new Map();
+    const add = (bankId, amount, exempt) => {
+      const key = bankId || "";
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push({ amount, exempt: Boolean(exempt) });
+    };
+    const source = entry || emptyMonth();
+    (source.expenses || []).forEach((row) => add(row.bankId, row.amount, row.gmfExempt));
+    (source.contributions || []).forEach((row) => add(row.bankId, row.amount, row.gmfExempt));
+    (source.investments || []).forEach((row) => add(row.bankId, row.amount, row.gmfExempt));
+    (source.transfers || []).forEach((row) => add(row.fromBankId, row.amount, row.gmfExempt));
+    return buckets;
+  }
+
+  function gmfForRows(entry) {
+    const buckets = gmfBuckets(entry);
+    const active = activeBankId();
+    const keys = active === null ? [...buckets.keys()] : [active];
+    const banks = keys.map((bankId) => ({
+      bankId,
+      ...gmfCompute(buckets.get(bankId) || [])
+    }));
+    return {
+      tax: banks.reduce((sum, bank) => sum + bank.tax, 0),
+      taxable: banks.reduce((sum, bank) => sum + bank.taxable, 0),
+      exemptUsed: banks.reduce((sum, bank) => sum + bank.exemptUsed, 0),
+      banks
+    };
+  }
+
+  function gmfNote(gmf) {
+    const cap = `Tope ${money(GMF_CAP)} por banco. Lo marcado no entra; lo demás sí.`;
+    if (activeBankId() !== null) {
+      return `Tope de este banco ${money(GMF_CAP)}. Exento usado ${money(gmf.exemptUsed)}. Lo marcado no entra.`;
+    }
+    const parts = gmf.banks
+      .filter((bank) => bank.tax > 0 || bank.exemptUsed > 0)
+      .map((bank) => `${bankName(bank.bankId)} ${money(bank.tax)}`);
+    return parts.length ? `${cap} ${parts.join(" · ")}` : cap;
   }
 
   function positionUnit(pot) {
@@ -1444,6 +1471,8 @@
     return (holding.name || "").trim() || kind;
   }
 
+  const collapsedPortfolioBanks = new Set();
+
   function renderInvestPortfolio(list) {
     const box = document.getElementById("invest-portfolio");
     if (!box) return;
@@ -1478,8 +1507,11 @@
             product: pot.name || "Bolsa",
             detail: name,
             bank: bankName(pot.bankId),
+            bankId: pot.bankId || "",
             invested: `${moneyInv(holdingInvested(holding), pot)} · ${money(toCop(holdingInvested(holding)))}`,
-            available: `${moneyInv(Number(holding.available) || 0, pot)} · ${money(cop)}`
+            available: `${moneyInv(Number(holding.available) || 0, pot)} · ${money(cop)}`,
+            investedCop: toCop(holdingInvested(holding)),
+            availableCop: cop
           });
         });
         return;
@@ -1493,34 +1525,38 @@
             product: pot.name || "Inversión manual",
             detail: name,
             bank: bankName(pot.bankId),
+            bankId: pot.bankId || "",
             invested: money(holdingInvested(holding)),
-            available: money(value)
+            available: money(value),
+            investedCop: holdingInvested(holding),
+            availableCop: value
           });
         });
         return;
       }
       const value = investmentWealthCop(pot);
+      const investedCop = pot.type === "cdt" ? (Number(pot.initialAmount) || 0) : (investmentSnapshot(pot).invested || 0);
       addGroup(`pot:${pot.id}`, `${pot.name || "Producto"} · ${bankName(pot.bankId)}`, bankName(pot.bankId), value);
       tableRows.push({
         product: pot.name || "Producto",
         detail: investTypeLabel(pot.type),
         bank: bankName(pot.bankId),
-        invested: money(pot.type === "cdt" ? (Number(pot.initialAmount) || 0) : (investmentSnapshot(pot).invested || 0)),
-        available: money(value)
+        bankId: pot.bankId || "",
+        invested: money(investedCop),
+        available: money(value),
+        investedCop,
+        availableCop: value
       });
     });
 
     const head = document.createElement("div");
-    head.className = "list-head";
-    head.append(
-      Object.assign(document.createElement("div"), {}),
-    );
+    head.className = "list-head portfolio-head";
     const titleWrap = document.createElement("div");
     titleWrap.append(
       Object.assign(document.createElement("h2"), { textContent: "Todo lo invertido" }),
       Object.assign(document.createElement("p"), {
         className: "faint",
-        textContent: "En la gráfica, las posiciones de bolsa con el mismo nombre se suman. Pasa el cursor para ver cada banco. La tabla las deja separadas."
+        textContent: "En la gráfica, las posiciones de bolsa con el mismo nombre se suman. Pasa el cursor para ver cada banco. La tabla las deja separadas y se pliega por banco."
       })
     );
     head.appendChild(titleWrap);
@@ -1563,6 +1599,14 @@
     });
     thead.appendChild(hr);
     const tbody = document.createElement("tbody");
+    const appendCells = (tr, values, leftCount) => {
+      values.forEach((text, idx) => {
+        const td = document.createElement("td");
+        td.textContent = text;
+        if (idx < leftCount) td.style.textAlign = "left";
+        tr.appendChild(td);
+      });
+    };
     if (!tableRows.length) {
       const tr = document.createElement("tr");
       const td = document.createElement("td");
@@ -1571,16 +1615,71 @@
       tr.appendChild(td);
       tbody.appendChild(tr);
     } else {
+      const byBank = new Map();
       tableRows.forEach((row) => {
-        const tr = document.createElement("tr");
-        [row.product, row.detail, row.bank, row.invested, row.available].forEach((text, idx) => {
+        const key = row.bankId || "";
+        if (!byBank.has(key)) byBank.set(key, []);
+        byBank.get(key).push(row);
+      });
+      const bankOrder = state.banks.map((bank) => bank.id);
+      const keys = [...byBank.keys()].sort((a, b) => {
+        const ia = bankOrder.indexOf(a);
+        const ib = bankOrder.indexOf(b);
+        return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
+      });
+      let totalInvested = 0;
+      let totalAvailable = 0;
+      keys.forEach((bankId) => {
+        const rows = byBank.get(bankId);
+        const invested = rows.reduce((sum, row) => sum + (Number(row.investedCop) || 0), 0);
+        const available = rows.reduce((sum, row) => sum + (Number(row.availableCop) || 0), 0);
+        totalInvested += invested;
+        totalAvailable += available;
+        const open = !collapsedPortfolioBanks.has(bankId);
+        const fold = document.createElement("tr");
+        fold.className = "bank-fold";
+        const labelCell = document.createElement("td");
+        labelCell.colSpan = 3;
+        labelCell.style.textAlign = "left";
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "bank-fold-btn";
+        toggle.textContent = `${open ? "▾" : "▸"} ${bankName(bankId)} · ${rows.length} posición${rows.length === 1 ? "" : "es"}`;
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        toggle.addEventListener("click", () => {
+          if (collapsedPortfolioBanks.has(bankId)) collapsedPortfolioBanks.delete(bankId);
+          else collapsedPortfolioBanks.add(bankId);
+          renderInvestPortfolio(list);
+        });
+        labelCell.appendChild(toggle);
+        fold.appendChild(labelCell);
+        [money(invested), money(available)].forEach((text) => {
           const td = document.createElement("td");
           td.textContent = text;
-          if (idx < 3) td.style.textAlign = "left";
-          tr.appendChild(td);
+          fold.appendChild(td);
         });
-        tbody.appendChild(tr);
+        tbody.appendChild(fold);
+        rows.forEach((row) => {
+          const tr = document.createElement("tr");
+          tr.className = "portfolio-detail";
+          if (!open) tr.hidden = true;
+          appendCells(tr, [row.product, row.detail, row.bank, row.invested, row.available], 3);
+          tbody.appendChild(tr);
+        });
       });
+      const total = document.createElement("tr");
+      total.className = "portfolio-total";
+      const totalLabel = document.createElement("td");
+      totalLabel.colSpan = 3;
+      totalLabel.style.textAlign = "left";
+      totalLabel.textContent = "Total en pesos";
+      total.appendChild(totalLabel);
+      [money(totalInvested), money(totalAvailable)].forEach((text) => {
+        const td = document.createElement("td");
+        td.textContent = text;
+        total.appendChild(td);
+      });
+      tbody.appendChild(total);
     }
     table.append(thead, tbody);
     tableWrap.appendChild(table);
@@ -1967,9 +2066,10 @@
     return field;
   }
 
-  function gmfToggle(row) {
+  function gmfToggle(row, caption = "Exento") {
     const label = document.createElement("label");
     label.className = "check gmf-check";
+    label.title = "Marcado: este monto no entra al 4x1000 de su banco. Sin marcar: sí entra.";
     const input = document.createElement("input");
     input.type = "checkbox";
     input.checked = Boolean(row.gmfExempt);
@@ -1977,8 +2077,16 @@
       row.gmfExempt = input.checked;
       renderMonthTotals();
     });
-    label.append(input, document.createTextNode("Exento 4x1000"));
+    label.append(input);
+    if (caption) label.append(document.createTextNode(caption));
     return label;
+  }
+
+  function rowEnd(row, remove) {
+    const end = document.createElement("div");
+    end.className = "row-end";
+    end.append(gmfToggle(row), remove);
+    return end;
   }
 
   function moneyField(value, onChange) {
@@ -2875,10 +2983,18 @@
         { name: "Subtotal banco", amount: total }
       ].filter((row) => row.amount !== 0 || row.name === "Subtotal banco"));
     });
-    if (includeLooseAssets(allBanks) && assetTotal()) {
-      addInvoiceRows(byBankSection, "Sin banco", [
-        { name: "Otro patrimonio", amount: assetTotal() }
-      ]);
+    if (includeLooseAssets(allBanks)) {
+      const assetRows = state.assets
+        .filter((asset) => Number(asset.value))
+        .map((asset) => {
+          const kind = (ASSET_KINDS.find((item) => item.id === asset.kind) || ASSET_KINDS[ASSET_KINDS.length - 1]).label;
+          const name = (asset.name || "").trim();
+          return {
+            name: name ? `Otro patrimonio - ${kind} · ${name}` : `Otro patrimonio - ${kind}`,
+            amount: Number(asset.value) || 0
+          };
+        });
+      if (assetRows.length) addInvoiceRows(byBankSection, "Sin banco", assetRows);
     }
     box.appendChild(byBankSection);
 
@@ -3063,16 +3179,13 @@
           row.amount = val;
           renderMonthTotals();
         }),
-        removeButton(() => {
+        rowEnd(row, removeButton(() => {
           entry.expenses.splice(index, 1);
           renderExpenses();
           renderMonthTotals();
-        })
+        }))
       );
-      const block = document.createElement("div");
-      block.className = "move-block";
-      block.append(wrap, gmfToggle(row));
-      box.appendChild(block);
+      box.appendChild(wrap);
     });
   }
 
@@ -3124,16 +3237,13 @@
         makeInput(row.concept || "", (input) => {
           row.concept = input.value;
         }, { type: "text", placeholder: "Concepto (ej. gasolina)" }),
-        removeButton(() => {
+        rowEnd(row, removeButton(() => {
           entry.contributions.splice(index, 1);
           renderContribs();
           renderMonthTotals();
-        })
+        }))
       );
-      const block = document.createElement("div");
-      block.className = "move-block";
-      block.append(wrap, gmfToggle(row));
-      box.appendChild(block);
+      box.appendChild(wrap);
     });
   }
 
@@ -3177,16 +3287,13 @@
         makeInput(row.concept || "", (input) => {
           row.concept = input.value;
         }, { type: "text", placeholder: "Concepto (opcional)" }),
-        removeButton(() => {
+        rowEnd(row, removeButton(() => {
           entry.investments.splice(index, 1);
           renderPlacements();
           renderMonthTotals();
-        })
+        }))
       );
-      const block = document.createElement("div");
-      block.className = "move-block";
-      block.append(wrap, gmfToggle(row));
-      box.appendChild(block);
+      box.appendChild(wrap);
     });
   }
 
@@ -3252,11 +3359,12 @@
         fieldWrap("Enlazar a inversión", makeSelect(row.investmentId || "", destInvestOpts, (value) => {
           row.investmentId = value;
           renderMonthTotals();
-        }))
+        })),
+        Object.assign(fieldWrap("Exento 4x1000", gmfToggle(row, "No entra")), { className: "field gmf-field" })
       );
       const body = document.createElement("div");
       body.className = "transfer-body";
-      body.append(grid, gmfToggle(row));
+      body.append(grid);
       wrap.append(body, removeButton(() => {
         entry.transfers.splice(index, 1);
         renderTransfers();
@@ -3289,7 +3397,7 @@
       metric("Ahorrado neto", money(t.contrib), t.retiros ? `Retiros ${money(t.retiros)}` : bankLabel),
       metric("Invertido", money(t.invest), bankLabel),
       metric("Transferencias", money(t.transferNet), t.transferOut || t.transferIn ? `Sale ${money(t.transferOut)} · Entra ${money(t.transferIn)}` : bankLabel),
-      metric("4x1000", money(gmf.tax), `Tope exento ${money(GMF_CAP)}. Exento usado ${money(gmf.exemptUsed)}.`)
+      metric("4x1000", money(gmf.tax), gmfNote(gmf))
     );
     const flowCard = document.getElementById("month-flow-card");
     if (flowCard) flowCard.hidden = potsOnlyBank();
@@ -3349,12 +3457,16 @@
     })));
     const foot = document.createElement("section");
     foot.className = "invoice-foot";
-    [
-      ["Balance del mes", t.balance],
-      ["4x1000", gmf.tax]
-    ].forEach(([label, value]) => {
+    const summary = [["Balance del mes", t.balance]];
+    if (gmf.banks.length > 1) {
+      gmf.banks
+        .filter((bank) => bank.tax > 0 || bank.exemptUsed > 0)
+        .forEach((bank) => summary.push([`4x1000 · ${bankName(bank.bankId)}`, bank.tax]));
+    }
+    summary.push(["4x1000", gmf.tax]);
+    summary.forEach(([label, value]) => {
       const row = document.createElement("div");
-      row.className = "invoice-row total";
+      row.className = label.startsWith("4x1000 ·") ? "invoice-row" : "invoice-row total";
       row.append(
         Object.assign(document.createElement("span"), { textContent: label }),
         Object.assign(document.createElement("span"), { textContent: money(value) })
@@ -3363,7 +3475,7 @@
     });
     const note = document.createElement("p");
     note.className = "saving-meta";
-    note.textContent = `Tope exento del 4x1000: ${money(GMF_CAP)}. Exento usado ${money(gmf.exemptUsed)}.`;
+    note.textContent = gmfNote(gmf);
     foot.appendChild(note);
     box.append(block, foot);
     if (typeof dialog.showModal === "function") dialog.showModal();
