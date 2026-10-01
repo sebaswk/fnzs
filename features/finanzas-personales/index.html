@@ -54,12 +54,14 @@
         </div>
         <div class="year-chips" id="year-chips"></div>
         <div class="bank-bar">
-          <span class="bank-label">Banco</span>
-          <div class="year-chips" id="bank-chips" aria-label="Filtro por banco"></div>
-          <button class="btn btn-ghost" type="button" id="btn-manage-banks">Bancos</button>
-          <div class="usd-rate-field" title="Convierte inversiones en dólares a pesos en el consolidado">
-            <label for="usd-rate">USD → COP</label>
-            <input id="usd-rate" type="number" min="0" step="0.01" placeholder="0" inputmode="decimal">
+          <div class="bank-filters">
+            <span class="bank-label">Banco</span>
+            <div class="year-chips" id="bank-chips" aria-label="Filtro por banco"></div>
+            <button class="btn btn-ghost" type="button" id="btn-manage-banks">Bancos</button>
+          </div>
+          <div class="field usd-rate-field" title="Convierte las inversiones en bolsa (dólares) a pesos en el consolidado">
+            <label for="usd-rate">Valor del dólar</label>
+            <input id="usd-rate" type="number" min="0" step="0.01" placeholder="Ej. 4200" inputmode="decimal">
           </div>
         </div>
         <div class="year-tools">
@@ -119,7 +121,7 @@
           <div class="list-head">
             <div>
               <h2>Inversiones</h2>
-              <p class="faint">Productos (fondo, CDT, alta rentabilidad). Entra a cada uno para el detalle mes a mes.</p>
+              <p class="faint">CDT, alta rentabilidad, bolsa o inversión manual. Entra a cada uno para el detalle.</p>
             </div>
             <button class="btn" type="button" id="add-invest">Nuevo producto</button>
           </div>
@@ -257,28 +259,21 @@
           <div class="metrics" id="invest-metrics"></div>
           <article class="card card-pad" id="invest-charts" hidden>
             <div class="list-head">
-              <h2>Gráficas</h2>
-              <p class="faint">Distribución entre posiciones y rendimiento de cada una</p>
+              <div>
+                <h2>Distribución</h2>
+                <p class="faint">Cómo se reparte el dinero disponible entre posiciones</p>
+              </div>
             </div>
-            <div class="invest-charts-grid">
-              <div>
-                <p class="chart-caption">Distribución (disponible)</p>
-                <div class="chart-wrap">
-                  <svg id="invest-donut" aria-label="Distribución de posiciones"></svg>
-                </div>
-              </div>
-              <div>
-                <p class="chart-caption">Rendimiento por posición</p>
-                <div class="chart-wrap">
-                  <svg id="invest-bars" aria-label="Rendimiento por posición"></svg>
-                </div>
-              </div>
+            <div class="chart-wrap">
+              <svg id="invest-donut" aria-label="Distribución de posiciones"></svg>
             </div>
           </article>
           <article class="card card-pad">
             <div class="list-head">
-              <h2>Tabla mes a mes</h2>
-              <p class="faint" id="invest-table-hint">Invertido, comisión, disponible y rendimientos</p>
+              <div>
+                <h2>Tabla mes a mes</h2>
+                <p class="faint" id="invest-table-hint">Invertido, comisión, disponible y rendimientos</p>
+              </div>
             </div>
             <div class="table-wrap">
               <table>
@@ -289,6 +284,17 @@
           </article>
         </aside>
       </div>
+      <article class="card card-pad invest-bars-panel" id="invest-bars-panel" hidden>
+        <div class="list-head">
+          <div>
+            <h2>Rendimiento por posición</h2>
+            <p class="faint">Ganancia o pérdida de cada posición. El largo de la barra es relativo a la que más rindió.</p>
+          </div>
+        </div>
+        <div class="chart-wrap bars-chart-wrap">
+          <svg id="invest-bars" aria-label="Rendimiento por posición"></svg>
+        </div>
+      </article>
     </section>
   </main>
 

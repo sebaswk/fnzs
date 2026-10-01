@@ -50,8 +50,17 @@
 .bank-bar {
   display: flex;
   flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.bank-filters {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .bank-label {
@@ -62,56 +71,70 @@
 }
 
 .usd-rate-field {
-  margin-left: auto;
-  display: grid;
-  gap: 4px;
-  min-width: 140px;
-}
-
-.usd-rate-field label {
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--faint);
+  width: min(220px, 100%);
+  flex: 0 0 220px;
 }
 
 .usd-rate-field input {
-  width: 140px;
-  padding: 8px 10px;
-}
-
-.bank-card {
-  grid-template-columns: minmax(0, 1fr) auto 40px;
-  align-items: end;
+  font-variant-numeric: tabular-nums;
 }
 
 .bank-order {
   display: flex;
-  gap: 4px;
-}
-
-.bank-order .btn {
-  width: 36px;
-  padding: 8px 0;
-}
-
-.invest-charts-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.chart-caption {
-  margin: 0 0 8px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.transfer-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(90px, 0.7fr) minmax(0, 1.1fr) minmax(0, 1fr) 40px;
-  gap: 8px;
   align-items: center;
+  gap: 8px;
+}
+
+.bank-order .btn,
+.bank-order .icon-btn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  flex: 0 0 44px;
+  border-radius: 12px;
+}
+
+.invest-bars-panel {
+  margin-top: 16px;
+}
+
+.bars-chart-wrap {
+  min-height: 0;
+  overflow: visible;
+}
+
+.transfer-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(8, 9, 11, 0.28);
+}
+
+.transfer-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.transfer-grid .field:nth-child(1),
+.transfer-grid .field:nth-child(2),
+.transfer-grid .field:nth-child(3) {
+  grid-column: span 2;
+}
+
+.transfer-grid .field:nth-child(4),
+.transfer-grid .field:nth-child(5) {
+  grid-column: span 3;
+}
+
+.transfer-card .icon-btn {
+  width: 44px;
+  height: 44px;
 }
 
 .dividends-panel {
@@ -284,6 +307,22 @@
   width: 100%;
 }
 
+.saving-card.bank-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 16px;
+  padding: 16px 18px;
+}
+
+.saving-card.bank-card .field {
+  min-width: 0;
+}
+
+.saving-card.bank-card .field input {
+  width: 100%;
+  min-width: 0;
+}
+
 .holding-move-row {
   display: grid;
   grid-template-columns: 88px minmax(110px, 0.9fr) minmax(130px, 1fr) minmax(120px, 0.9fr) minmax(0, 1.2fr) 40px;
@@ -292,7 +331,9 @@
 }
 
 .holding-move-row input,
-.holding-move-row select {
+.holding-move-row select,
+.dividend-row input:not([type="checkbox"]),
+.dividend-row select {
   width: 100%;
   border: 1px solid var(--line);
   background: var(--bg);
@@ -301,6 +342,15 @@
   padding: 11px 12px;
   font-size: 14px;
   outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.holding-move-row input:focus,
+.holding-move-row select:focus,
+.dividend-row input:not([type="checkbox"]):focus,
+.dividend-row select:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(212, 196, 160, 0.12);
 }
 
 .move-legend {
@@ -311,6 +361,10 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--faint);
+}
+
+.move-legend.dividend-row {
+  grid-template-columns: minmax(0, 1.2fr) minmax(80px, 0.6fr) minmax(90px, 0.7fr) minmax(100px, 0.8fr) auto 40px;
 }
 
 .patrimonio-linked {
@@ -543,6 +597,13 @@ button:disabled {
   font-size: 0.95rem;
 }
 
+.invest-mini-hint {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--faint);
+}
+
 .invest-workspace {
   margin-top: 22px;
 }
@@ -678,6 +739,7 @@ button:disabled {
 .row select:focus,
 .field select:focus {
   border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(212, 196, 160, 0.12);
 }
 
 .icon-btn {
@@ -724,7 +786,7 @@ button:disabled {
   background: var(--surface);
   color: var(--ink);
   padding: 0;
-  max-width: min(560px, calc(100vw - 32px));
+  max-width: min(720px, calc(100vw - 32px));
   width: 100%;
 }
 
@@ -763,14 +825,32 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .invest-charts-grid,
-  .transfer-row,
-  .dividend-row {
+  .transfer-card,
+  .transfer-grid,
+  .dividend-row,
+  .saving-card.bank-card {
     grid-template-columns: 1fr;
   }
 
+  .transfer-grid .field {
+    grid-column: auto;
+  }
+
   .usd-rate-field {
-    margin-left: 0;
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  .transfer-card .icon-btn,
+  .bank-order .icon-btn,
+  .bank-order .btn {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .bank-order {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
   }
 
   .month-grid {

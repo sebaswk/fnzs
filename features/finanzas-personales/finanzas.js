@@ -21,7 +21,8 @@
   const INVEST_TYPES = [
     { id: "cdt", label: "CDT" },
     { id: "alta_rentabilidad", label: "Cuenta de alta rentabilidad" },
-    { id: "bolsa", label: "Bolsa" }
+    { id: "bolsa", label: "Bolsa" },
+    { id: "manual", label: "Inversión manual" }
   ];
   const BOLSA_KINDS = [
     { id: "etf", label: "ETF" },
@@ -312,6 +313,14 @@
     return (INVEST_TYPES.find((item) => item.id === type) || INVEST_TYPES[0]).label;
   }
 
+  function isPositionType(type) {
+    return type === "bolsa" || type === "manual";
+  }
+
+  function positionUnit(pot) {
+    return pot && pot.type === "bolsa" ? "USD" : "COP";
+  }
+
   function bankName(id) {
     if (!id) return "Sin banco";
     const bank = state.banks.find((item) => item.id === id);
@@ -513,7 +522,7 @@
     const pot = kind === "saving"
       ? state.savings.find((item) => item.id === id)
       : state.investments.find((item) => item.id === id);
-    if (kind === "investment" && pot && pot.type === "bolsa") {
+    if (kind === "investment" && pot && isPositionType(pot.type)) {
       return bolsaTotals(pot).invested;
     }
     const initial = pot ? (Number(pot.initialAmount) || 0) : 0;
@@ -525,7 +534,7 @@
     const pot = kind === "saving"
       ? state.savings.find((item) => item.id === id)
       : state.investments.find((item) => item.id === id);
-    if (kind === "investment" && pot && pot.type === "bolsa") {
+    if (kind === "investment" && pot && isPositionType(pot.type)) {
       return bolsaStockUntil(pot, untilYear);
     }
     const initial = pot ? (Number(pot.initialAmount) || 0) : 0;
@@ -557,8 +566,8 @@
       savings += potFlowBeforeYear("saving", s.id, year);
     });
     state.investments.filter((s) => matchesBank(s.bankId)).forEach((s) => {
-      if (s.type === "bolsa") {
-        const rate = usdRate();
+      if (isPositionType(s.type)) {
+        const rate = s.type === "bolsa" ? usdRate() : 1;
         investmentsInitial += (s.holdings || []).reduce((acc, h) => acc + (Number(h.invested) || 0), 0) * rate;
         investments += (s.holdings || []).reduce((acc, h) => acc + (h.movements || [])
           .filter((m) => Number(m.year) < year)
@@ -604,6 +613,7 @@
       .filter((s) => bankOk(s.bankId))
       .reduce((sum, s) => {
         if (s.type === "bolsa") return sum + bolsaValueCop(s).available;
+        if (s.type === "manual") return sum + bolsaTotals(s).available;
         if (s.type === "cdt") {
           const snap = investmentSnapshot(s);
           return sum + (snap.available || Number(s.initialAmount) || 0);
@@ -889,8 +899,7 @@
       down.setAttribute("aria-label", "Bajar banco");
       down.disabled = index === state.banks.length - 1;
       down.addEventListener("click", () => moveBank(index, 1));
-      order.append(up, down);
-      card.append(nameField, order, removeButton(() => {
+      order.append(up, down, removeButton(() => {
         const id = bank.id;
         state.banks.splice(index, 1);
         state.accounts.forEach((acc) => { if (acc.bankId === id) acc.bankId = ""; });
@@ -900,6 +909,7 @@
         renderBanksModal();
         render();
       }));
+      card.append(nameField, order);
       box.appendChild(card);
     });
   }
@@ -1076,7 +1086,7 @@
       p.className = "empty-note";
       p.textContent = state.investments.length
         ? "No hay productos para este filtro de banco."
-        : "Crea un producto (fondo, CDT o alta rentabilidad) e indica el capital que ya tienes invertido.";
+        : "Crea un producto (CDT, alta rentabilidad, bolsa o inversión manual) e indica el capital que ya tienes invertido.";
       box.appendChild(p);
       return;
     }
@@ -1087,6 +1097,22 @@
       const total = potTotal("investment", pot.id);
       const snapshot = investmentSnapshot(pot);
       const fmt = (value) => moneyInv(value, pot);
+      const cdtNet = pot.type === "cdt" ? cdtNetInterest(pot) : null;
+      const outside = pot.type === "cdt"
+        ? {
+          invested: snapshot.invested,
+          available: snapshot.available,
+          returns: cdtNet,
+          returnsHint: "Total del plazo"
+        }
+        : {
+          invested: snapshot.invested,
+          available: snapshot.available,
+          returns: snapshot.returns,
+          returnsHint: pot.type === "alta_rentabilidad"
+            ? (state.viewYear < now.getFullYear() ? `Año ${state.viewYear}` : "Hasta este mes")
+            : ""
+        };
       const totalLabel = pot.type === "bolsa"
         ? `${fmt(snapshot.available)} · ${money(toCop(snapshot.available))} COP`
         : money(snapshot.available);
@@ -1101,7 +1127,7 @@
       badge.textContent = investTypeLabel(pot.type);
       const sub = document.createElement("p");
       sub.className = "faint";
-      sub.textContent = `${bankName(pot.bankId)} · ${pot.type === "bolsa" ? `disponible ${totalLabel}` : `capital ${money(total)}`}`;
+      sub.textContent = `${bankName(pot.bankId)} · ${isPositionType(pot.type) ? `disponible ${totalLabel}` : `capital ${money(total)}`}`;
       title.append(h3, badge, sub);
 
       const openBtn = document.createElement("button");
@@ -1115,12 +1141,23 @@
       const mini = document.createElement("div");
       mini.className = "invest-mini";
       [
-        ["Invertido", fmt(snapshot.invested)],
-        ["Disponible", fmt(snapshot.available)],
-        ["Rendimientos", fmt(snapshot.returns)]
-      ].forEach(([label, value]) => {
+        ["Invertido", fmt(outside.invested), ""],
+        ["Disponible", fmt(outside.available), ""],
+        ["Rendimientos", fmt(outside.returns), outside.returnsHint]
+      ].forEach(([label, value, hint]) => {
         const cell = document.createElement("div");
-        cell.innerHTML = `<span class="muted">${label}</span><strong>${value}</strong>`;
+        const k = document.createElement("span");
+        k.className = "muted";
+        k.textContent = label;
+        const strong = document.createElement("strong");
+        strong.textContent = value;
+        cell.append(k, strong);
+        if (hint) {
+          const note = document.createElement("p");
+          note.className = "invest-mini-hint";
+          note.textContent = hint;
+          cell.appendChild(note);
+        }
         mini.appendChild(cell);
       });
 
@@ -1139,7 +1176,7 @@
   }
 
   function investmentSnapshot(pot) {
-    if (pot.type === "bolsa") {
+    if (isPositionType(pot.type)) {
       return bolsaTotals(pot);
     }
     const rows = buildInvestSchedule(pot);
@@ -1383,15 +1420,39 @@
     return rows;
   }
 
+  function paintPositionCharts(pot, last) {
+    const colors = ["#8aa4c4", "#9cbaa4", "#d4c4a0", "#c98970", "#b8a1d4", "#e0c07a", "#c47a8a"];
+    const dist = (pot.holdings || []).map((h, i) => ({
+      id: h.id,
+      label: h.name || (BOLSA_KINDS.find((k) => k.id === h.kind) || BOLSA_KINDS[0]).label,
+      color: colors[i % colors.length],
+      value: Math.max(0, Number(h.available) || 0)
+    })).filter((s) => s.value > 0);
+    NorteCharts.donutChart(document.getElementById("invest-donut"), dist, {
+      centerLabel: "Disponible",
+      centerValue: moneyInv(last.available, pot),
+      empty: "Añade posiciones con disponible para ver la distribución",
+      format: (v) => moneyInv(v, pot)
+    });
+    const bars = (pot.holdings || []).map((h, i) => ({
+      label: h.name || (BOLSA_KINDS.find((k) => k.id === h.kind) || BOLSA_KINDS[0]).label,
+      value: holdingReturns(h, pot),
+      color: holdingReturns(h, pot) >= 0 ? colors[i % colors.length] : "#c98970"
+    }));
+    NorteCharts.barsChart(document.getElementById("invest-bars"), bars.length ? bars : [{ label: "Sin datos", value: 0, color: "#7a7f8a" }], {
+      format: (v) => moneyInv(v, pot)
+    });
+  }
+
   function updateInvestSide(pot) {
     const schedule = buildInvestSchedule(pot);
-    const snap = investmentSnapshot(pot);
-    const last = pot.type === "bolsa"
-      ? snap
-      : snap;
+    const last = investmentSnapshot(pot);
+    const positioned = isPositionType(pot.type);
 
     const charts = document.getElementById("invest-charts");
-    if (charts) charts.hidden = pot.type !== "bolsa";
+    const barsPanel = document.getElementById("invest-bars-panel");
+    if (charts) charts.hidden = !positioned;
+    if (barsPanel) barsPanel.hidden = !positioned || !(pot.holdings || []).length;
 
     if (pot.type === "cdt") {
       const gross = cdtGrossInterest(pot);
@@ -1403,7 +1464,7 @@
         metric("Capital", moneyInv(Number(pot.initialAmount) || 0, pot), `${Number(pot.termDays) || 0} días · abre día ${pot.openDay}`),
         metric("Intereses brutos", moneyInv(gross, pot), `${Norte.formatPct(rate, 2)} EA`),
         metric("Impuesto", moneyInv(tax, pot), `${Norte.formatPct(pot.taxPct)} retención`),
-        metric("Intereses netos", moneyInv(net, pot), pot.interestPayout === "mensual" ? "Pago mes a mes" : "Pago al vencimiento")
+        metric("Intereses netos", moneyInv(net, pot), pot.interestPayout === "mensual" ? "Pago mes a mes" : "Pago al vencimiento · total del plazo")
       );
     } else if (pot.type === "bolsa") {
       document.getElementById("invest-metrics").replaceChildren(
@@ -1414,27 +1475,15 @@
         metric("Dinero disponible en pesos", money(toCop(last.available)), usdRate() ? `TRM ${moneyDec(usdRate())}` : "Define el valor del dólar arriba"),
         metric("Rendimiento en pesos", money(toCop(last.returns)), usdRate() ? `TRM ${moneyDec(usdRate())}` : "Define el valor del dólar arriba")
       );
-      const colors = ["#8aa4c4", "#9cbaa4", "#d4c4a0", "#c98970", "#b8a1d4", "#e0c07a", "#c47a8a"];
-      const dist = (pot.holdings || []).map((h, i) => ({
-        id: h.id,
-        label: h.name || (BOLSA_KINDS.find((k) => k.id === h.kind) || BOLSA_KINDS[0]).label,
-        color: colors[i % colors.length],
-        value: Math.max(0, Number(h.available) || 0)
-      })).filter((s) => s.value > 0);
-      NorteCharts.donutChart(document.getElementById("invest-donut"), dist, {
-        centerLabel: "Disponible",
-        centerValue: moneyInv(last.available, pot),
-        empty: "Añade posiciones con disponible para ver la distribución",
-        format: (v) => moneyInv(v, pot)
-      });
-      const bars = (pot.holdings || []).map((h, i) => ({
-        label: h.name || (BOLSA_KINDS.find((k) => k.id === h.kind) || BOLSA_KINDS[0]).label,
-        value: holdingReturns(h, pot),
-        color: holdingReturns(h, pot) >= 0 ? colors[i % colors.length] : "#c98970"
-      }));
-      NorteCharts.barsChart(document.getElementById("invest-bars"), bars.length ? bars : [{ label: "Sin datos", value: 0, color: "#7a7f8a" }], {
-        format: (v) => moneyInv(v, pot)
-      });
+      paintPositionCharts(pot, last);
+    } else if (pot.type === "manual") {
+      document.getElementById("invest-metrics").replaceChildren(
+        metric("Dinero invertido", moneyInv(last.invested, pot), "Pesos · capital + aportes"),
+        metric("Comisión", moneyInv(last.commission, pot), "Pesos"),
+        metric("Dinero disponible", moneyInv(last.available, pot), "Pesos · valor actual"),
+        metric("Rendimientos", moneyInv(last.returns, pot), "Pesos · incl. dividendos reinvertidos")
+      );
+      paintPositionCharts(pot, last);
     } else {
       document.getElementById("invest-metrics").replaceChildren(
         metric("Dinero invertido", moneyInv(last.invested, pot), "Capital + aportes hasta hoy"),
@@ -1451,7 +1500,7 @@
     const hr = document.createElement("tr");
     const cols = pot.type === "cdt"
       ? ["Periodo", "Invertido", "Rend. bruto", "Impuesto", "Rend. neto", "Disp. neto"]
-      : pot.type === "bolsa"
+      : isPositionType(pot.type)
         ? ["Posición", "Invertido", "Comisión", "Disponible", "Rendimientos"]
         : ["Mes", "Invertido", "Comisión", "Disponible", "Rendimientos"];
     cols.forEach((text) => {
@@ -1466,7 +1515,7 @@
       const td = document.createElement("td");
       td.colSpan = cols.length;
       td.style.textAlign = "left";
-      td.textContent = pot.type === "bolsa"
+      td.textContent = isPositionType(pot.type)
         ? "Añade un ETF, acción o cripto para ver el detalle."
         : "Sin proyección todavía.";
       tr.appendChild(td);
@@ -1489,6 +1538,15 @@
     });
   }
 
+  function fieldWrap(labelText, control) {
+    const field = document.createElement("div");
+    field.className = "field";
+    const label = document.createElement("label");
+    label.textContent = labelText;
+    field.append(label, control);
+    return field;
+  }
+
   function moneyField(value, onChange) {
     return makeInput(value === 0 || value ? value : "", (input) => {
       const raw = input.value;
@@ -1507,14 +1565,18 @@
   function renderBolsaHoldings(pot, container) {
     const section = document.createElement("section");
     section.className = "card card-pad holdings-panel";
+    const usd = pot.type === "bolsa";
+    const unit = positionUnit(pot);
     const head = document.createElement("div");
     head.className = "list-head";
     const titleWrap = document.createElement("div");
     titleWrap.append(
-      Object.assign(document.createElement("h2"), { textContent: "Posiciones en bolsa" }),
+      Object.assign(document.createElement("h2"), { textContent: usd ? "Posiciones en bolsa" : "Posiciones" }),
       Object.assign(document.createElement("p"), {
         className: "faint",
-        textContent: "Rendimiento = disponible − invertido − comisión (+ dividendos reinvertidos). Los aportes llevan monto y comisión del mes. Cifras en USD."
+        textContent: usd
+          ? "Rendimiento = disponible − invertido − comisión (+ dividendos reinvertidos). Los aportes llevan monto y comisión del mes. Cifras en USD."
+          : "Igual que bolsa, pero todo queda en pesos: no se multiplica por el valor del dólar. Rendimiento = disponible − invertido − comisión (+ dividendos reinvertidos)."
       })
     );
     const addBtn = document.createElement("button");
@@ -1569,7 +1631,7 @@
       const investedField = document.createElement("div");
       investedField.className = "field field-money";
       investedField.append(
-        Object.assign(document.createElement("label"), { textContent: "Dinero invertido (USD)" }),
+        Object.assign(document.createElement("label"), { textContent: `Dinero invertido (${unit})` }),
         moneyField(holding.invested, (val) => {
           holding.invested = val;
           updateInvestSide(pot);
@@ -1581,7 +1643,7 @@
       const availableField = document.createElement("div");
       availableField.className = "field field-money";
       availableField.append(
-        Object.assign(document.createElement("label"), { textContent: "Dinero disponible (USD)" }),
+        Object.assign(document.createElement("label"), { textContent: `Dinero disponible (${unit})` }),
         moneyField(holding.available, (val) => {
           holding.available = val;
           updateInvestSide(pot);
@@ -1593,7 +1655,7 @@
       const commissionField = document.createElement("div");
       commissionField.className = "field field-money";
       commissionField.append(
-        Object.assign(document.createElement("label"), { textContent: "Comisión base (USD)" }),
+        Object.assign(document.createElement("label"), { textContent: `Comisión base (${unit})` }),
         moneyField(holding.commission, (val) => {
           holding.commission = val;
           updateInvestSide(pot);
@@ -1758,7 +1820,7 @@
 
     const legend = document.createElement("div");
     legend.className = "move-legend dividend-row";
-    ["Posición", "Año", "Mes", "Valor (USD)", "Reinvertido", ""].forEach((text) => {
+    ["Posición", "Año", "Mes", `Valor (${positionUnit(pot)})`, "Reinvertido", ""].forEach((text) => {
       legend.appendChild(Object.assign(document.createElement("span"), { textContent: text }));
     });
     section.appendChild(legend);
@@ -1818,15 +1880,17 @@
     document.getElementById("invest-title").textContent = pot.name || "Producto";
     document.getElementById("invest-lede").textContent =
       pot.type === "cdt"
-        ? "CDT: indica el % de interés anual; se calculan intereses brutos, retención y neto."
+        ? "CDT: el interés es fijo. Afuera se ve el rendimiento total del plazo; la tabla muestra cómo se causa mes a mes."
         : pot.type === "alta_rentabilidad"
-          ? "Alta rentabilidad: si el banco cambia el %, el historial conserva lo ya ganado y aplica la tasa nueva desde el cambio."
-          : "Bolsa en USD: posiciones, aportes, dividendos y gráficas. El dólar de la barra superior convierte a pesos en el consolidado.";
+          ? "Alta rentabilidad: si el banco cambia el %, el historial conserva lo ya ganado y aplica la tasa nueva desde el cambio. Afuera solo se ve lo ganado hasta este mes."
+          : pot.type === "manual"
+            ? "Inversión manual en pesos: posiciones, aportes y dividendos, sin conversión por el valor del dólar."
+            : "Bolsa en USD: posiciones, aportes, dividendos y gráficas. El valor del dólar de arriba convierte a pesos en el consolidado.";
 
     document.getElementById("invest-table-hint").textContent =
       pot.type === "cdt"
-        ? "Tabla con rendimiento bruto, impuesto y neto según el tipo de pago"
-        : pot.type === "bolsa"
+        ? "Tabla con rendimiento bruto, impuesto y neto según el tipo de pago. El total del plazo está en los indicadores de arriba."
+        : isPositionType(pot.type)
           ? "Resumen por posición: invertido, comisión, disponible y rendimientos calculados"
           : "Tabla mes a mes: invertido, comisión, disponible y rendimientos";
 
@@ -1846,7 +1910,7 @@
     addField("Nombre", makeInput(pot.name, (input) => {
       pot.name = input.value;
       document.getElementById("invest-title").textContent = pot.name || "Producto";
-    }, { type: "text", placeholder: "CDT / alta rentabilidad / broker" }));
+    }, { type: "text", placeholder: "CDT / alta rentabilidad / broker / manual" }));
 
     addField("Tipo", makeSelect(pot.type, INVEST_TYPES.map((t) => ({ value: t.id, label: t.label })), (value) => {
       pot.type = value;
@@ -1874,7 +1938,7 @@
       updateInvestSide(pot);
     }, { type: "number", step: "1" }));
 
-    if (pot.type !== "bolsa") {
+    if (!isPositionType(pot.type)) {
       addField("Ya invertido (no es ingreso del mes)", moneyField(pot.initialAmount, (val) => {
         pot.initialAmount = val;
         if (pot.type === "cdt") pot.interestGross = cdtGrossInterest(pot);
@@ -1950,7 +2014,7 @@
 
     form.appendChild(card);
 
-    if (pot.type === "bolsa") {
+    if (isPositionType(pot.type)) {
       renderBolsaHoldings(pot, form);
     }
 
@@ -2633,20 +2697,22 @@
     rows.forEach((row) => {
       const index = entry.transfers.indexOf(row);
       const wrap = document.createElement("div");
-      wrap.className = "transfer-row";
+      wrap.className = "transfer-card";
+      const grid = document.createElement("div");
+      grid.className = "transfer-grid";
       const destInvestOpts = [
-        { value: "", label: "Solo transferencia" },
+        { value: "", label: "No enlazar" },
         ...state.investments
           .filter((s) => (s.bankId || "") === (row.toBankId || ""))
-          .map((s) => ({ value: s.id, label: `A inversión: ${s.name || "Producto"}` }))
+          .map((s) => ({ value: s.id, label: s.name || "Producto" }))
       ];
-      wrap.append(
-        makeSelect(row.fromBankId || "", bankOptions(true), (value) => {
+      grid.append(
+        fieldWrap("Desde", makeSelect(row.fromBankId || "", bankOptions(true), (value) => {
           row.fromBankId = value;
           renderTransfers();
           renderMonthTotals();
-        }),
-        makeSelect(row.toBankId || "", bankOptions(true), (value) => {
+        })),
+        fieldWrap("Hacia", makeSelect(row.toBankId || "", bankOptions(true), (value) => {
           row.toBankId = value;
           if (row.investmentId) {
             const pot = state.investments.find((s) => s.id === row.investmentId);
@@ -2654,22 +2720,24 @@
           }
           renderTransfers();
           renderMonthTotals();
-        }),
-        moneyField(row.amount, (val) => {
+        })),
+        fieldWrap("Monto", moneyField(row.amount, (val) => {
           row.amount = val;
           renderMonthTotals();
-        }),
-        makeInput(row.concept || "", (input) => { row.concept = input.value; }, { type: "text", placeholder: "Concepto" }),
-        makeSelect(row.investmentId || "", destInvestOpts, (value) => {
+        })),
+        fieldWrap("Concepto", makeInput(row.concept || "", (input) => {
+          row.concept = input.value;
+        }, { type: "text", placeholder: "Para qué se mueve" })),
+        fieldWrap("Enlazar a inversión", makeSelect(row.investmentId || "", destInvestOpts, (value) => {
           row.investmentId = value;
           renderMonthTotals();
-        }),
-        removeButton(() => {
-          entry.transfers.splice(index, 1);
-          renderTransfers();
-          renderMonthTotals();
-        })
+        }))
       );
+      wrap.append(grid, removeButton(() => {
+        entry.transfers.splice(index, 1);
+        renderTransfers();
+        renderMonthTotals();
+      }));
       box.appendChild(wrap);
     });
     if (totalEl) {
@@ -2928,6 +2996,35 @@
         annualYieldPct: 9.5,
         openYear: Number(year),
         openMonth: "01"
+      }),
+      normalizeInvestment({
+        id: uid(),
+        name: "Acciones locales",
+        type: "manual",
+        bankId: bank2,
+        openYear: Number(year),
+        openMonth: "01",
+        holdings: [
+          {
+            id: uid(),
+            kind: "acciones",
+            name: "Éxito",
+            invested: 1500000,
+            available: 1620000,
+            commission: 12000,
+            movements: []
+          },
+          {
+            id: uid(),
+            kind: "etf",
+            name: "HCOL",
+            invested: 800000,
+            available: 760000,
+            commission: 5000,
+            movements: []
+          }
+        ],
+        dividends: []
       })
     ];
     state.years = {

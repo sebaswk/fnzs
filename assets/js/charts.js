@@ -343,43 +343,60 @@
 
   function barsChart(svg, bars, options = {}) {
     clear(svg);
-    const width = 520;
-    const height = Math.max(180, 28 + bars.length * 48);
+    const format = options.format || String;
+    const list = bars.length ? bars : [{ label: "Sin datos", value: 0, color: "#7a7f8a" }];
+    const width = 760;
+    const rowH = 68;
+    const height = 8 + list.length * rowH;
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-    const pad = { top: 12, right: 16, bottom: 16, left: 16 };
-    const max = Math.max(...bars.map((bar) => Math.abs(bar.value)), 1);
-    const innerW = width - pad.left - pad.right;
-    const rowH = (height - pad.top - pad.bottom) / bars.length;
+    svg.setAttribute("role", "img");
+    const padX = 2;
+    const innerW = width - padX * 2;
+    const max = Math.max(...list.map((bar) => Math.abs(Number(bar.value) || 0)), 1);
 
-    bars.forEach((bar, index) => {
-      const y = pad.top + index * rowH + 10;
-      const w = (Math.abs(bar.value) / max) * (innerW * 0.68);
-      svg.appendChild(
-        el("rect", {
-          x: pad.left,
-          y,
-          width: Math.max(w, 4),
+    list.forEach((bar, index) => {
+      const y = 6 + index * rowH;
+      const name = el("text", {
+        x: padX,
+        y: y + 16,
+        fill: "#efe8dc",
+        "font-size": "15",
+        "font-family": "Outfit, sans-serif"
+      });
+      const fullLabel = bar.label || "Posición";
+      name.textContent = fullLabel.length > 42 ? `${fullLabel.slice(0, 40)}…` : fullLabel;
+      const title = el("title");
+      title.textContent = `${fullLabel}: ${format(bar.value)}`;
+      name.appendChild(title);
+      const value = el("text", {
+        x: width - padX,
+        y: y + 16,
+        fill: "#9a9286",
+        "font-size": "14",
+        "font-family": "Outfit, sans-serif",
+        "text-anchor": "end"
+      });
+      value.textContent = format(bar.value);
+      const amount = Math.abs(Number(bar.value) || 0);
+      const w = (amount / max) * innerW;
+      svg.appendChild(el("rect", {
+        x: padX,
+        y: y + 28,
+        width: innerW,
+        height: 18,
+        rx: 9,
+        fill: "rgba(239,232,220,0.06)"
+      }));
+      if (w > 0) {
+        svg.appendChild(el("rect", {
+          x: padX,
+          y: y + 28,
+          width: Math.max(w, 8),
           height: 18,
           rx: 9,
-          fill: bar.color
-        })
-      );
-      const name = el("text", {
-        x: pad.left,
-        y: y - 4,
-        fill: "#9a9286",
-        "font-size": "11",
-        "font-family": "Outfit, sans-serif"
-      });
-      name.textContent = bar.label;
-      const value = el("text", {
-        x: pad.left + Math.max(w, 4) + 10,
-        y: y + 13,
-        fill: "#efe8dc",
-        "font-size": "12",
-        "font-family": "Outfit, sans-serif"
-      });
-      value.textContent = (options.format || String)(bar.value);
+          fill: bar.color || "#8aa4c4"
+        }));
+      }
       svg.append(name, value);
     });
   }
