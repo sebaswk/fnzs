@@ -5,6 +5,10 @@
   align-items: end;
 }
 
+.pyme-tools > .btn {
+  min-height: 46px;
+}
+
 .pyme-metrics {
   margin-top: 0;
 }

@@ -48,12 +48,6 @@
       </div>
 
       <div class="year-bar card card-pad">
-        <div class="year-nav">
-          <button class="btn" type="button" id="year-prev" aria-label="Año anterior">‹</button>
-          <strong id="year-label">2026</strong>
-          <button class="btn" type="button" id="year-next" aria-label="Año siguiente">›</button>
-        </div>
-        <div class="year-chips" id="year-chips"></div>
         <div class="pyme-tools">
           <div class="field">
             <label for="biz-name">Nombre del negocio</label>
@@ -74,6 +68,17 @@
             </div>
           </div>
           <button class="btn btn-ghost" type="button" id="btn-ejemplo">Cargar ejemplo</button>
+        </div>
+        <div class="context-row">
+          <div class="context-block">
+            <span class="context-label">Año</span>
+            <div class="year-nav">
+              <button class="btn" type="button" id="year-prev" aria-label="Año anterior">‹</button>
+              <strong id="year-label">2026</strong>
+              <button class="btn" type="button" id="year-next" aria-label="Año siguiente">›</button>
+            </div>
+            <div class="year-chips" id="year-chips"></div>
+          </div>
         </div>
       </div>
 
@@ -99,8 +104,10 @@
         <div class="overview-grid">
           <article class="card card-pad">
             <div class="list-head">
-              <h2>De las ventas a la ganancia</h2>
-              <p class="faint">Totales del año</p>
+              <div>
+                <h2>De las ventas a la ganancia</h2>
+                <p class="faint">Totales del año</p>
+              </div>
             </div>
             <div class="chart-wrap">
               <svg id="pnl-chart" aria-label="Barras del estado de resultados"></svg>
@@ -116,8 +123,10 @@
 
         <article class="card card-pad pulse-card">
           <div class="list-head">
-            <h2>Mes a mes</h2>
-            <p class="faint">Ventas, costos y gastos de cada mes</p>
+            <div>
+              <h2>Mes a mes</h2>
+              <p class="faint">Ventas, costos y gastos de cada mes</p>
+            </div>
           </div>
           <div class="chart-wrap pulse-wrap">
             <svg id="year-chart" aria-label="Ventas y salidas del año"></svg>
@@ -142,8 +151,10 @@
       <div id="panel-meses" hidden>
         <section class="months-panel">
           <div class="list-head">
-            <h2>Meses de <span id="months-year">2026</span></h2>
-            <p class="faint">Entra a un mes para anotar ventas y gastos</p>
+            <div>
+              <h2>Meses de <span id="months-year">2026</span></h2>
+              <p class="faint">Entra a un mes para anotar ventas y gastos</p>
+            </div>
           </div>
           <div class="month-grid" id="month-grid"></div>
         </section>

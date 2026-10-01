@@ -19,44 +19,30 @@
 
 .year-bar {
   display: grid;
-  gap: 16px;
+  gap: 18px;
   margin: 22px 0 18px;
 }
 
-.year-nav {
-  display: flex;
-  align-items: center;
+.identity-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(160px, 220px) auto;
   gap: 12px;
-}
-
-.year-nav strong {
-  font-family: var(--serif);
-  font-size: 2rem;
-  font-weight: 500;
-  min-width: 5rem;
-  text-align: center;
-}
-
-.year-nav .btn {
-  width: 42px;
-  padding: 8px 0;
-}
-
-.year-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.bank-bar {
-  display: flex;
-  flex-wrap: wrap;
   align-items: end;
-  justify-content: space-between;
-  gap: 16px;
 }
 
-.bank-filters {
+.identity-row > .btn {
+  min-height: 46px;
+}
+
+.context-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.context-block {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -64,6 +50,11 @@
   min-width: 0;
 }
 
+.context-row > .context-block:only-child {
+  grid-column: 1 / -1;
+}
+
+.context-label,
 .bank-label {
   font-size: 12px;
   letter-spacing: 0.14em;
@@ -71,9 +62,37 @@
   color: var(--faint);
 }
 
+.year-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.year-nav strong {
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-weight: 500;
+  min-width: 3.6rem;
+  text-align: center;
+}
+
+.year-nav .btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 999px;
+}
+
+.year-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
 .usd-rate-field {
-  width: min(220px, 100%);
-  flex: 0 0 220px;
+  width: 100%;
+  min-width: 0;
 }
 
 .usd-rate-field input {
@@ -92,7 +111,7 @@
   height: 44px;
   padding: 0;
   flex: 0 0 44px;
-  border-radius: 12px;
+  border-radius: 999px;
 }
 
 
@@ -323,13 +342,6 @@
   color: var(--muted);
 }
 
-.year-tools {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: end;
-}
-
 .overview-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
@@ -337,6 +349,10 @@
   margin-top: 16px;
   margin-bottom: 8px;
   align-items: start;
+}
+
+.overview-grid[hidden] {
+  display: none;
 }
 
 .chart-toggle-row {
@@ -809,7 +825,7 @@ button:disabled {
   border: 1px solid var(--line);
   background: linear-gradient(180deg, rgba(239, 232, 220, 0.035), rgba(239, 232, 220, 0.015));
   color: var(--ink);
-  border-radius: 16px;
+  border-radius: var(--radius);
   padding: 16px;
   min-height: 132px;
   display: grid;
@@ -851,7 +867,7 @@ button:disabled {
 
 .list-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 14px;
@@ -883,7 +899,20 @@ button:disabled {
 }
 
 .row.contrib-rich {
-  grid-template-columns: minmax(120px, 1fr) 110px 110px minmax(120px, 1.2fr) auto;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.7fr) minmax(0, 0.75fr) minmax(0, 1.2fr) auto;
+}
+
+.row.contrib-rich > :not(.row-end) {
+  min-width: 0;
+}
+
+.row.contrib-rich > .row-end {
+  flex-shrink: 0;
+}
+
+.row.contrib-rich > .row-end .icon-btn {
+  width: 40px;
+  flex: 0 0 40px;
 }
 
 .row input,
@@ -910,7 +939,7 @@ button:disabled {
 .icon-btn {
   width: 40px;
   height: 40px;
-  border-radius: 12px;
+  border-radius: 999px;
   border: 1px solid var(--line);
   background: transparent;
   color: var(--muted);
@@ -980,7 +1009,8 @@ button:disabled {
 @media (max-width: 960px) {
   .overview-grid,
   .workspace,
-  .year-tools,
+  .identity-row,
+  .context-row,
   .saving-card,
   .saving-card-rich,
   .bank-card,
@@ -1014,8 +1044,8 @@ button:disabled {
     grid-column: auto;
   }
 
-  .usd-rate-field {
-    flex-basis: 100%;
+  .usd-rate-field,
+  .identity-row > .btn {
     width: 100%;
   }
 

@@ -39,10 +39,9 @@
 }
 
 .year-title {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  justify-items: start;
+  gap: 6px;
   margin-bottom: 12px;
 }
 

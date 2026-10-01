@@ -1554,10 +1554,10 @@
     const table = document.createElement("table");
     const thead = document.createElement("thead");
     const hr = document.createElement("tr");
-    ["Producto", "Detalle", "Banco", "Invertido", "Disponible"].forEach((text, idx) => {
+    ["Detalle", "Banco", "Invertido", "Disponible"].forEach((text, idx) => {
       const th = document.createElement("th");
       th.textContent = text;
-      if (idx < 3) th.style.textAlign = "left";
+      if (idx < 2) th.style.textAlign = "left";
       hr.appendChild(th);
     });
     thead.appendChild(hr);
@@ -1573,7 +1573,7 @@
     if (!tableRows.length) {
       const tr = document.createElement("tr");
       const td = document.createElement("td");
-      td.colSpan = 5;
+      td.colSpan = 4;
       td.textContent = "Todavía no hay posiciones para listar.";
       tr.appendChild(td);
       tbody.appendChild(tr);
@@ -1607,16 +1607,16 @@
           else collapsedPortfolioBanks.add(bankId);
           renderInvestPortfolio(list);
         });
-        const toggleCell = document.createElement("td");
-        toggleCell.style.textAlign = "left";
-        toggleCell.appendChild(toggle);
-        const countCell = document.createElement("td");
-        countCell.style.textAlign = "left";
-        countCell.textContent = `${rows.length} posición${rows.length === 1 ? "" : "es"}`;
+        const detailCell = document.createElement("td");
+        detailCell.style.textAlign = "left";
+        detailCell.append(
+          toggle,
+          document.createTextNode(` ${rows.length} posición${rows.length === 1 ? "" : "es"}`)
+        );
         const bankCell = document.createElement("td");
         bankCell.style.textAlign = "left";
         bankCell.textContent = bankName(bankId);
-        fold.append(toggleCell, countCell, bankCell);
+        fold.append(detailCell, bankCell);
         [money(invested), money(available)].forEach((text) => {
           const td = document.createElement("td");
           td.textContent = text;
@@ -1627,14 +1627,14 @@
           const tr = document.createElement("tr");
           tr.className = "portfolio-detail";
           if (!open) tr.hidden = true;
-          appendCells(tr, [row.product, row.detail, row.bank, row.invested, row.available], 3);
+          appendCells(tr, [row.detail, row.bank, row.invested, row.available], 2);
           tbody.appendChild(tr);
         });
       });
       const total = document.createElement("tr");
       total.className = "portfolio-total";
       const totalLabel = document.createElement("td");
-      totalLabel.colSpan = 3;
+      totalLabel.colSpan = 2;
       totalLabel.style.textAlign = "left";
       totalLabel.textContent = "Total en pesos";
       total.appendChild(totalLabel);

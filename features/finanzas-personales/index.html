@@ -47,29 +47,32 @@
       </div>
 
       <div class="year-bar card card-pad">
-        <div class="year-nav">
-          <button class="btn" type="button" id="year-prev" aria-label="Año anterior">‹</button>
-          <strong id="year-label">2026</strong>
-          <button class="btn" type="button" id="year-next" aria-label="Año siguiente">›</button>
-        </div>
-        <div class="year-chips" id="year-chips"></div>
-        <div class="bank-bar">
-          <div class="bank-filters">
-            <span class="bank-label">Banco</span>
-            <div class="year-chips" id="bank-chips" aria-label="Filtro por banco"></div>
-            <button class="btn btn-ghost" type="button" id="btn-manage-banks">Bancos</button>
+        <div class="identity-row">
+          <div class="field">
+            <label for="nombre">Nombre o apodo</label>
+            <input id="nombre" type="text" placeholder="Opcional" autocomplete="name">
           </div>
           <div class="field usd-rate-field" title="Convierte las inversiones en bolsa (dólares) a pesos en el consolidado">
             <label for="usd-rate">Valor del dólar</label>
             <input id="usd-rate" type="number" min="0" step="0.01" placeholder="Ej. 4200" inputmode="decimal">
           </div>
-        </div>
-        <div class="year-tools">
-          <div class="field">
-            <label for="nombre">Nombre o apodo</label>
-            <input id="nombre" type="text" placeholder="Opcional" autocomplete="name">
-          </div>
           <button class="btn btn-ghost" type="button" id="btn-ejemplo">Cargar ejemplo</button>
+        </div>
+        <div class="context-row">
+          <div class="context-block">
+            <span class="context-label">Año</span>
+            <div class="year-nav">
+              <button class="btn" type="button" id="year-prev" aria-label="Año anterior">‹</button>
+              <strong id="year-label">2026</strong>
+              <button class="btn" type="button" id="year-next" aria-label="Año siguiente">›</button>
+            </div>
+            <div class="year-chips" id="year-chips"></div>
+          </div>
+          <div class="context-block">
+            <span class="context-label">Banco</span>
+            <div class="year-chips" id="bank-chips" aria-label="Filtro por banco"></div>
+            <button class="btn btn-ghost" type="button" id="btn-manage-banks">Bancos</button>
+          </div>
         </div>
       </div>
 
@@ -145,8 +148,10 @@
       <div id="panel-meses" hidden>
         <section class="months-panel">
           <div class="list-head">
-            <h2>Meses de <span id="months-year">2026</span></h2>
-            <p class="faint">Entra a un mes para anotar</p>
+            <div>
+              <h2>Meses de <span id="months-year">2026</span></h2>
+              <p class="faint">Entra a un mes para anotar</p>
+            </div>
           </div>
           <div class="month-grid" id="month-grid"></div>
         </section>
