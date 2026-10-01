@@ -214,6 +214,14 @@
     });
   }
 
+  function formatShare(value, total) {
+    const pct = (value / total) * 100;
+    if (!(pct > 0)) return "0.0";
+    let digits = 2;
+    while (Number(pct.toFixed(digits)) === 0 && digits < 4) digits += 1;
+    return pct.toFixed(digits).replace(/(\.\d)0+$/, "$1");
+  }
+
   function polar(cx, cy, r, angle) {
     return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)];
   }
@@ -255,7 +263,7 @@
     const visible = slices.filter((slice) => slice.value > 0);
 
     function showSlice(slice, event) {
-      const pct = ((slice.value / total) * 100).toFixed(0);
+      const pct = formatShare(slice.value, total);
       tip.replaceChildren();
       const title = document.createElement("div");
       title.className = "tip-year";
@@ -345,7 +353,7 @@
       label.textContent = slice.label;
       const pct = document.createElement("span");
       pct.className = "donut-legend-pct";
-      pct.textContent = `${((slice.value / total) * 100).toFixed(0)}%`;
+      pct.textContent = `${formatShare(slice.value, total)}%`;
       item.append(swatch, label, pct);
       item.addEventListener("mouseenter", (event) => showSlice(slice, event));
       item.addEventListener("mouseleave", hideTip);

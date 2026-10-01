@@ -215,6 +215,75 @@
     mountDisclaimer();
   }
 
+  function closePicks() {
+    document.querySelectorAll(".pick.is-open").forEach((node) => {
+      node.classList.remove("is-open");
+      const menu = node.querySelector(".pick-menu");
+      if (menu) menu.hidden = true;
+    });
+  }
+
+  document.addEventListener("click", closePicks);
+
+  function menuSelect(value, options, onChange) {
+    const wrap = document.createElement("div");
+    wrap.className = "pick";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "pick-btn";
+    const menu = document.createElement("div");
+    menu.className = "pick-menu";
+    menu.hidden = true;
+    let current = value;
+    let items = Array.isArray(options) ? options.slice() : [];
+
+    function labelOf(val) {
+      const found = items.find((opt) => String(opt.value) === String(val));
+      return found ? found.label : "Elegir";
+    }
+
+    function paint() {
+      wrap.value = current == null ? "" : String(current);
+      button.textContent = labelOf(current);
+      menu.replaceChildren();
+      items.forEach((opt) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = `pick-item${String(opt.value) === String(current) ? " is-active" : ""}`;
+        item.textContent = opt.label;
+        item.addEventListener("click", (event) => {
+          event.stopPropagation();
+          current = opt.value;
+          closePicks();
+          paint();
+          if (onChange) onChange(current);
+          wrap.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        menu.appendChild(item);
+      });
+    }
+
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const willOpen = menu.hidden;
+      closePicks();
+      if (willOpen) {
+        menu.hidden = false;
+        wrap.classList.add("is-open");
+      }
+    });
+
+    wrap.setOptions = (next, selected) => {
+      items = next;
+      if (selected != null) current = selected;
+      paint();
+    };
+
+    wrap.append(button, menu);
+    paint();
+    return wrap;
+  }
+
   window.Norte = {
     APP,
     VERSION,
@@ -225,6 +294,7 @@
     downloadSnapshot,
     parseSnapshot,
     bindFileInput,
-    enableDrop
+    enableDrop,
+    menuSelect
   };
 })();

@@ -273,6 +273,7 @@
     usdRate: 0,
     savingsLayout: "compact",
     investLayout: "compact",
+    flowChartsOpen: false,
     banks: [],
     accounts: [],
     assets: [],
@@ -342,15 +343,6 @@
     return type === "bolsa" || type === "manual";
   }
 
-  function potsOnlyBank() {
-    const id = state.bankFilter;
-    if (!id || id === "all" || id === "none") return false;
-    const hasAccount = state.accounts.some((acc) => (acc.bankId || "") === id);
-    const hasPot = state.savings.some((item) => (item.bankId || "") === id)
-      || state.investments.some((item) => (item.bankId || "") === id);
-    return hasPot && !hasAccount;
-  }
-
   function includeLooseAssets(allBanks) {
     return Boolean(allBanks) || state.bankFilter === "all" || state.bankFilter === "none";
   }
@@ -393,24 +385,13 @@
   }
 
   function gmfCompute(items) {
-    let room = GMF_CAP;
-    let taxable = 0;
+    let counted = 0;
     (items || []).forEach((item) => {
       const amount = Math.abs(Number(item.amount) || 0);
-      if (!amount) return;
-      if (item.exempt) {
-        const free = Math.min(amount, Math.max(0, room));
-        room -= free;
-        taxable += amount - free;
-      } else {
-        taxable += amount;
-      }
+      if (!amount || item.exempt) return;
+      counted += amount;
     });
-    return {
-      tax: taxable * GMF_RATE,
-      taxable,
-      exemptUsed: GMF_CAP - room
-    };
+    return { counted };
   }
 
   function gmfBuckets(entry) {
@@ -436,23 +417,11 @@
       bankId,
       ...gmfCompute(buckets.get(bankId) || [])
     }));
-    return {
-      tax: banks.reduce((sum, bank) => sum + bank.tax, 0),
-      taxable: banks.reduce((sum, bank) => sum + bank.taxable, 0),
-      exemptUsed: banks.reduce((sum, bank) => sum + bank.exemptUsed, 0),
-      banks
-    };
+    return { banks };
   }
 
-  function gmfNote(gmf) {
-    const cap = `Tope ${money(GMF_CAP)} por banco. Lo marcado no entra; lo demás sí.`;
-    if (activeBankId() !== null) {
-      return `Tope de este banco ${money(GMF_CAP)}. Exento usado ${money(gmf.exemptUsed)}. Lo marcado no entra.`;
-    }
-    const parts = gmf.banks
-      .filter((bank) => bank.tax > 0 || bank.exemptUsed > 0)
-      .map((bank) => `${bankName(bank.bankId)} ${money(bank.tax)}`);
-    return parts.length ? `${cap} ${parts.join(" · ")}` : cap;
+  function gmfCapText(counted) {
+    return `de ${money(GMF_CAP)} de tope. Lo marcado como exento no entra.`;
   }
 
   function positionUnit(pot) {
@@ -835,16 +804,7 @@
   }
 
   function makeSelect(value, options, onChange) {
-    const select = document.createElement("select");
-    options.forEach((opt) => {
-      const option = document.createElement("option");
-      option.value = opt.value;
-      option.textContent = opt.label;
-      if (String(opt.value) === String(value)) option.selected = true;
-      select.appendChild(option);
-    });
-    select.addEventListener("change", () => onChange(select.value));
-    return select;
+    return Norte.menuSelect(value, options, onChange);
   }
 
   function bankOptions(includeEmpty) {
@@ -1086,7 +1046,9 @@
     });
 
     const flowCharts = document.getElementById("overview-charts");
-    if (flowCharts) flowCharts.hidden = potsOnlyBank();
+    const flowBtn = document.getElementById("toggle-flow-charts");
+    if (flowCharts) flowCharts.hidden = !state.flowChartsOpen;
+    if (flowBtn) flowBtn.textContent = state.flowChartsOpen ? "Ocultar gráficas" : "Ver gráficas";
     NorteCharts.donutChart(document.getElementById("year-donut"), yearOutflowSlices(state.viewYear), {
       centerLabel: "Salidas",
       centerValue: money(totals.expense + totals.aportes + totals.invest),
@@ -1592,9 +1554,10 @@
     const table = document.createElement("table");
     const thead = document.createElement("thead");
     const hr = document.createElement("tr");
-    ["Producto", "Detalle", "Banco", "Invertido", "Disponible"].forEach((text) => {
+    ["Producto", "Detalle", "Banco", "Invertido", "Disponible"].forEach((text, idx) => {
       const th = document.createElement("th");
       th.textContent = text;
+      if (idx < 3) th.style.textAlign = "left";
       hr.appendChild(th);
     });
     thead.appendChild(hr);
@@ -1621,12 +1584,7 @@
         if (!byBank.has(key)) byBank.set(key, []);
         byBank.get(key).push(row);
       });
-      const bankOrder = state.banks.map((bank) => bank.id);
-      const keys = [...byBank.keys()].sort((a, b) => {
-        const ia = bankOrder.indexOf(a);
-        const ib = bankOrder.indexOf(b);
-        return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
-      });
+      const keys = [...byBank.keys()];
       let totalInvested = 0;
       let totalAvailable = 0;
       keys.forEach((bankId) => {
@@ -1638,21 +1596,27 @@
         const open = !collapsedPortfolioBanks.has(bankId);
         const fold = document.createElement("tr");
         fold.className = "bank-fold";
-        const labelCell = document.createElement("td");
-        labelCell.colSpan = 3;
-        labelCell.style.textAlign = "left";
         const toggle = document.createElement("button");
         toggle.type = "button";
         toggle.className = "bank-fold-btn";
-        toggle.textContent = `${open ? "▾" : "▸"} ${bankName(bankId)} · ${rows.length} posición${rows.length === 1 ? "" : "es"}`;
+        toggle.textContent = open ? "▾" : "▸";
         toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        toggle.setAttribute("aria-label", `${open ? "Compactar" : "Expandir"} ${bankName(bankId)}`);
         toggle.addEventListener("click", () => {
           if (collapsedPortfolioBanks.has(bankId)) collapsedPortfolioBanks.delete(bankId);
           else collapsedPortfolioBanks.add(bankId);
           renderInvestPortfolio(list);
         });
-        labelCell.appendChild(toggle);
-        fold.appendChild(labelCell);
+        const toggleCell = document.createElement("td");
+        toggleCell.style.textAlign = "left";
+        toggleCell.appendChild(toggle);
+        const countCell = document.createElement("td");
+        countCell.style.textAlign = "left";
+        countCell.textContent = `${rows.length} posición${rows.length === 1 ? "" : "es"}`;
+        const bankCell = document.createElement("td");
+        bankCell.style.textAlign = "left";
+        bankCell.textContent = bankName(bankId);
+        fold.append(toggleCell, countCell, bankCell);
         [money(invested), money(available)].forEach((text) => {
           const td = document.createElement("td");
           td.textContent = text;
@@ -2069,7 +2033,7 @@
   function gmfToggle(row, caption = "Exento") {
     const label = document.createElement("label");
     label.className = "check gmf-check";
-    label.title = "Marcado: este monto no entra al 4x1000 de su banco. Sin marcar: sí entra.";
+    label.title = "Marcado: este monto no entra al 4x1000. Sin marcar: sí entra, hasta el tope del banco.";
     const input = document.createElement("input");
     input.type = "checkbox";
     input.checked = Boolean(row.gmfExempt);
@@ -2582,7 +2546,7 @@
           const mature = cdtMaturityDate(pot);
           preview.textContent = `${Norte.formatPct(rate, 2)} EA · bruto ${moneyInv(gross, pot)} · impuesto ${moneyInv(tax, pot)} · neto ${moneyInv(gross - tax, pot)} · vence ${mature.getDate()}/${mature.getMonth() + 1}/${mature.getFullYear()}`;
         };
-        card.querySelectorAll("input, select").forEach((input) => {
+        card.querySelectorAll("input, select, .pick").forEach((input) => {
           input.addEventListener("input", syncPreview);
           input.addEventListener("change", syncPreview);
         });
@@ -3160,16 +3124,11 @@
       const index = entry.expenses.indexOf(row);
       const wrap = document.createElement("div");
       wrap.className = "row expense";
-      const select = document.createElement("select");
-      CATEGORIES.forEach((category) => {
-        const option = document.createElement("option");
-        option.value = category.id;
-        option.textContent = category.label;
-        if (category.id === categoryById(row.category).id) option.selected = true;
-        select.appendChild(option);
-      });
-      select.addEventListener("change", () => {
-        row.category = select.value;
+      const select = makeSelect(categoryById(row.category).id, CATEGORIES.map((category) => ({
+        value: category.id,
+        label: category.label
+      })), (value) => {
+        row.category = value;
         renderMonthTotals();
       });
       wrap.append(
@@ -3397,10 +3356,16 @@
       metric("Ahorrado neto", money(t.contrib), t.retiros ? `Retiros ${money(t.retiros)}` : bankLabel),
       metric("Invertido", money(t.invest), bankLabel),
       metric("Transferencias", money(t.transferNet), t.transferOut || t.transferIn ? `Sale ${money(t.transferOut)} · Entra ${money(t.transferIn)}` : bankLabel),
-      metric("4x1000", money(gmf.tax), gmfNote(gmf))
+      metric(
+        "4x1000",
+        activeBankId() !== null || gmf.banks.length <= 1
+          ? money((gmf.banks[0] || { counted: 0 }).counted)
+          : "Por banco",
+        activeBankId() !== null || gmf.banks.length <= 1
+          ? gmfCapText()
+          : gmf.banks.filter((bank) => bank.counted > 0).map((bank) => `${bankName(bank.bankId)}: ${money(bank.counted)} de ${money(GMF_CAP)}`).join(" · ") || gmfCapText()
+      )
     );
-    const flowCard = document.getElementById("month-flow-card");
-    if (flowCard) flowCard.hidden = potsOnlyBank();
     NorteCharts.donutChart(document.getElementById("month-donut"), slices, {
       centerLabel: "Salidas",
       centerValue: money(t.expense + t.aportes + t.invest + t.transferOut),
@@ -3457,25 +3422,35 @@
     })));
     const foot = document.createElement("section");
     foot.className = "invoice-foot";
-    const summary = [["Balance del mes", t.balance]];
-    if (gmf.banks.length > 1) {
-      gmf.banks
-        .filter((bank) => bank.tax > 0 || bank.exemptUsed > 0)
-        .forEach((bank) => summary.push([`4x1000 · ${bankName(bank.bankId)}`, bank.tax]));
+    const summary = [{ label: "Balance del mes", text: money(t.balance), total: true }];
+    const gmfBanks = gmf.banks.length ? gmf.banks : [{ bankId: activeBankId() || "", counted: 0 }];
+    if (gmfBanks.length > 1) {
+      gmfBanks.forEach((bank) => {
+        summary.push({
+          label: `4x1000 · ${bankName(bank.bankId)}`,
+          text: `${money(bank.counted)} de ${money(GMF_CAP)}`,
+          total: false
+        });
+      });
+    } else {
+      summary.push({
+        label: "4x1000",
+        text: `${money(gmfBanks[0].counted)} de ${money(GMF_CAP)}`,
+        total: true
+      });
     }
-    summary.push(["4x1000", gmf.tax]);
-    summary.forEach(([label, value]) => {
+    summary.forEach((item) => {
       const row = document.createElement("div");
-      row.className = label.startsWith("4x1000 ·") ? "invoice-row" : "invoice-row total";
+      row.className = item.total ? "invoice-row total" : "invoice-row";
       row.append(
-        Object.assign(document.createElement("span"), { textContent: label }),
-        Object.assign(document.createElement("span"), { textContent: money(value) })
+        Object.assign(document.createElement("span"), { textContent: item.label }),
+        Object.assign(document.createElement("span"), { textContent: item.text })
       );
       foot.appendChild(row);
     });
     const note = document.createElement("p");
     note.className = "saving-meta";
-    note.textContent = gmfNote(gmf);
+    note.textContent = "Cada banco tiene su tope. Lo marcado como exento no entra; lo demás sí.";
     foot.appendChild(note);
     box.append(block, foot);
     if (typeof dialog.showModal === "function") dialog.showModal();
@@ -3850,6 +3825,13 @@
     state.savingsLayout = state.savingsLayout === "compact" ? "full" : "compact";
     state.expandedSavingId = null;
     renderSavings();
+  });
+  document.getElementById("toggle-flow-charts").addEventListener("click", () => {
+    state.flowChartsOpen = !state.flowChartsOpen;
+    const flowCharts = document.getElementById("overview-charts");
+    const flowBtn = document.getElementById("toggle-flow-charts");
+    if (flowCharts) flowCharts.hidden = !state.flowChartsOpen;
+    if (flowBtn) flowBtn.textContent = state.flowChartsOpen ? "Ocultar gráficas" : "Ver gráficas";
   });
   document.getElementById("toggle-invest-layout").addEventListener("click", () => {
     state.investLayout = state.investLayout === "compact" ? "full" : "compact";

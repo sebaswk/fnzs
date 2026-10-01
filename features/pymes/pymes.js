@@ -621,19 +621,13 @@
         makeInput(row.name, (input) => { row.name = input.value; }, { type: "text", placeholder: "Concepto" })
       );
       if (kind === "expense") {
-        const select = document.createElement("select");
-        [["fijo", "Fijo"], ["variable", "Variable"]].forEach(([value, label]) => {
-          const option = document.createElement("option");
-          option.value = value;
-          option.textContent = label;
-          if (row.type === value) option.selected = true;
-          select.appendChild(option);
-        });
-        select.addEventListener("change", () => {
-          row.type = select.value;
+        wrap.appendChild(Norte.menuSelect(row.type || "fijo", [
+          { value: "fijo", label: "Fijo" },
+          { value: "variable", label: "Variable" }
+        ], (value) => {
+          row.type = value;
           renderMonthTotals();
-        });
-        wrap.appendChild(select);
+        }));
       }
       wrap.append(
         makeInput(row.amount || "", (input) => {

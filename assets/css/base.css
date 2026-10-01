@@ -263,6 +263,7 @@ p {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  min-width: 0;
 }
 
 .card-pad {
@@ -277,10 +278,72 @@ p {
   color: var(--faint);
 }
 
+.pick {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.pick-btn {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%239a9286' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center;
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 11px 34px 11px 12px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.pick.is-open {
+  z-index: 40;
+}
+
+.pick-btn:hover,
+.pick.is-open .pick-btn {
+  border-color: var(--gold);
+}
+
+.pick-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 100%;
+  max-height: 240px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: #14171b;
+  box-shadow: var(--shadow);
+}
+
+.pick-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  padding: 8px 10px;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.pick-item:hover,
+.pick-item.is-active {
+  background: rgba(212, 196, 160, 0.14);
+}
+
 .field {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 .field label {
@@ -419,6 +482,7 @@ p {
   margin-top: 6px;
   font-size: 12px;
   color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .positive {

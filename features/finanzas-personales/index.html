@@ -82,11 +82,16 @@
 
       <div id="panel-recopilado">
         <div class="metrics" id="year-metrics"></div>
-        <div class="overview-grid" id="overview-charts">
+        <div class="chart-toggle-row">
+          <button class="btn btn-ghost" type="button" id="toggle-flow-charts">Ver gráficas</button>
+        </div>
+        <div class="overview-grid" id="overview-charts" hidden>
           <article class="card card-pad">
             <div class="list-head">
-              <h2>Mes a mes</h2>
-              <p class="faint">Ingresos, gastos, ahorros e inversiones de cada mes</p>
+              <div>
+                <h2>Mes a mes</h2>
+                <p class="faint">Ingresos, gastos, ahorros e inversiones de cada mes</p>
+              </div>
             </div>
             <div class="chart-wrap pulse-wrap">
               <svg id="year-chart" aria-label="Gráfica anual de flujo"></svg>

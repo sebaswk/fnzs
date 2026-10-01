@@ -9,6 +9,7 @@
 .stack {
   display: grid;
   gap: 16px;
+  min-width: 0;
 }
 
 .stack-fields {
@@ -240,6 +241,7 @@
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
   align-items: end;
+  min-width: 0;
 }
 
 .transfer-grid .field:nth-child(1),
@@ -334,6 +336,13 @@
   gap: 16px;
   margin-top: 16px;
   margin-bottom: 8px;
+  align-items: start;
+}
+
+.chart-toggle-row {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 16px;
 }
 
 .savings-panel {
@@ -836,6 +845,10 @@ button:disabled {
   margin-top: 22px;
 }
 
+.workspace > * {
+  min-width: 0;
+}
+
 .list-head {
   display: flex;
   align-items: center;
@@ -858,6 +871,7 @@ button:disabled {
   grid-template-columns: minmax(0, 1.3fr) 140px 40px;
   gap: 8px;
   align-items: center;
+  min-width: 0;
 }
 
 .row.expense {
@@ -876,6 +890,7 @@ button:disabled {
 .row select,
 .field select {
   width: 100%;
+  min-width: 0;
   border: 1px solid var(--line);
   background: var(--bg);
   color: var(--ink);
@@ -938,6 +953,13 @@ button:disabled {
   padding: 0;
   max-width: min(720px, calc(100vw - 32px));
   width: 100%;
+  overflow: hidden;
+}
+
+.modal .invoice {
+  margin-top: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .modal::backdrop {

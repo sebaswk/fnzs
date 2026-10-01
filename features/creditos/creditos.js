@@ -189,17 +189,30 @@
       : `${amount} una sola vez, en el mes ${month}.`;
   }
 
-  function fillMonthSelect(select, selected) {
+  function monthChoices(selected) {
     const chosen = Math.max(1, Number(selected) || 1);
     const maxMonth = Math.max(totalMonths(), chosen, 12);
-    select.replaceChildren();
+    const options = [];
     for (let month = 1; month <= maxMonth; month += 1) {
-      const option = document.createElement("option");
-      option.value = String(month);
-      option.textContent = String(month);
-      if (month === chosen) option.selected = true;
-      select.appendChild(option);
+      options.push({ value: String(month), label: String(month) });
     }
+    return { chosen: String(chosen), options };
+  }
+
+  function fillMonthSelect(select, selected) {
+    const { chosen, options } = monthChoices(selected);
+    if (select.setOptions) {
+      select.setOptions(options, chosen);
+      return;
+    }
+    select.replaceChildren();
+    options.forEach((opt) => {
+      const option = document.createElement("option");
+      option.value = opt.value;
+      option.textContent = opt.label;
+      if (opt.value === chosen) option.selected = true;
+      select.appendChild(option);
+    });
   }
 
   function refreshExtraMonths() {
@@ -254,16 +267,15 @@
       const whenLabel = document.createElement("label");
       whenLabel.setAttribute("for", `extra-month-${item.id}`);
       whenLabel.textContent = "Desde el mes número";
-      const month = document.createElement("select");
-      month.id = `extra-month-${item.id}`;
-      month.className = "extra-month";
-      month.dataset.id = item.id;
-      fillMonthSelect(month, item.month || 1);
-      month.addEventListener("change", () => {
-        item.month = Number.parseInt(month.value, 10) || 1;
+      const monthChoicesNow = monthChoices(item.month || 1);
+      const month = Norte.menuSelect(monthChoicesNow.chosen, monthChoicesNow.options, (value) => {
+        item.month = Number.parseInt(value, 10) || 1;
         hint.textContent = extraHintText(item);
         render();
       });
+      month.id = `extra-month-${item.id}`;
+      month.classList.add("extra-month");
+      month.dataset.id = item.id;
       const whenHint = document.createElement("span");
       whenHint.className = "hint";
       whenHint.textContent = "1 es la primera cuota, 2 la segunda, y así.";
