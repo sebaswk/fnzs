@@ -82,7 +82,7 @@
 
       <div id="panel-recopilado">
         <div class="metrics" id="year-metrics"></div>
-        <div class="overview-grid">
+        <div class="overview-grid" id="overview-charts">
           <article class="card card-pad">
             <div class="list-head">
               <h2>Mes a mes</h2>
@@ -112,9 +112,13 @@
               <h2>Ahorros</h2>
               <p class="faint">Saldo inicial + aportes − retiros, con concepto. Se arrastran al año siguiente.</p>
             </div>
-            <button class="btn" type="button" id="add-saving">Nuevo ahorro</button>
+            <div class="head-actions">
+              <button class="btn btn-ghost" type="button" id="toggle-savings-layout">Vista completa</button>
+              <button class="btn" type="button" id="add-saving">Nuevo ahorro</button>
+            </div>
           </div>
           <div class="savings-list" id="savings-list"></div>
+          <div class="list-total" id="savings-total" hidden></div>
         </section>
 
         <section class="card card-pad savings-panel">
@@ -123,9 +127,13 @@
               <h2>Inversiones</h2>
               <p class="faint">CDT, alta rentabilidad, bolsa o inversión manual. Entra a cada uno para el detalle.</p>
             </div>
-            <button class="btn" type="button" id="add-invest">Nuevo producto</button>
+            <div class="head-actions">
+              <button class="btn btn-ghost" type="button" id="toggle-invest-layout">Vista completa</button>
+              <button class="btn" type="button" id="add-invest">Nuevo producto</button>
+            </div>
           </div>
           <div class="savings-list" id="invest-list"></div>
+          <div id="invest-portfolio" hidden></div>
         </section>
       </div>
 
@@ -146,7 +154,10 @@
               <h2>Patrimonio bancario</h2>
               <p class="faint">Registra lo que ya tienes en cada banco. Ese saldo inicial no aparece como ingreso del mes.</p>
             </div>
-            <button class="btn" type="button" id="add-account">Nueva cuenta</button>
+            <div class="head-actions">
+              <button class="btn" type="button" id="add-asset" hidden>Otro patrimonio</button>
+              <button class="btn" type="button" id="add-account">Nueva cuenta</button>
+            </div>
           </div>
           <div class="metrics" id="patrimonio-metrics"></div>
           <div class="patrimonio-divider" aria-hidden="true"></div>
@@ -163,7 +174,10 @@
       <button class="btn btn-ghost back-btn" type="button" id="btn-back">← Volver a los meses</button>
       <div class="page-head">
         <p class="kicker"><span></span> Mes</p>
-        <h1 id="month-title">Enero 2026</h1>
+        <div class="month-title-row">
+          <h1 id="month-title">Enero 2026</h1>
+          <button class="btn" type="button" id="btn-month-invoice">Factura del mes</button>
+        </div>
         <p class="lede">Anota lo de este mes. Los aportes a ahorros e inversiones salen del flujo y se suman a cada fondo. Usa concepto al retirar o aportar.</p>
       </div>
 
@@ -236,7 +250,7 @@
         </div>
         <aside class="stack">
           <div class="metrics" id="month-metrics"></div>
-          <article class="card card-pad">
+          <article class="card card-pad" id="month-flow-card">
             <h2>En qué se fue el dinero</h2>
             <div class="chart-wrap">
               <svg id="month-donut" aria-label="Egresos del mes por categoría"></svg>
@@ -282,21 +296,30 @@
               </table>
             </div>
           </article>
+          <article class="card card-pad" id="invest-bars-panel" hidden>
+            <div class="list-head">
+              <div>
+                <h2>Rendimiento por posición</h2>
+                <p class="faint">Ganancia o pérdida de cada posición. El largo de la barra es relativo a la que más rindió.</p>
+              </div>
+            </div>
+            <div class="chart-wrap bars-chart-wrap">
+              <svg id="invest-bars" aria-label="Rendimiento por posición"></svg>
+            </div>
+          </article>
         </aside>
       </div>
-      <article class="card card-pad invest-bars-panel" id="invest-bars-panel" hidden>
-        <div class="list-head">
-          <div>
-            <h2>Rendimiento por posición</h2>
-            <p class="faint">Ganancia o pérdida de cada posición. El largo de la barra es relativo a la que más rindió.</p>
-          </div>
-        </div>
-        <div class="chart-wrap bars-chart-wrap">
-          <svg id="invest-bars" aria-label="Rendimiento por posición"></svg>
-        </div>
-      </article>
     </section>
   </main>
+
+  <dialog class="modal modal-wide" id="month-invoice-modal">
+    <form method="dialog" class="modal-card">
+      <article class="invoice" id="month-invoice"></article>
+      <div class="modal-actions">
+        <button class="btn btn-primary" value="close">Cerrar</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog class="modal" id="banks-modal">
     <form method="dialog" class="modal-card">

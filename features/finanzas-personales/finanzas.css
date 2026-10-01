@@ -94,8 +94,103 @@
   border-radius: 12px;
 }
 
-.invest-bars-panel {
-  margin-top: 16px;
+
+.head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.month-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.month-card {
+  cursor: pointer;
+}
+
+.month-invoice-btn {
+  justify-self: start;
+  padding: 6px 12px;
+}
+
+.compact-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(140px, auto) auto auto 40px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(8, 9, 11, 0.35);
+}
+
+.compact-main {
+  min-width: 0;
+}
+
+.compact-main strong,
+.compact-main span {
+  display: block;
+}
+
+.compact-main span {
+  margin-top: 2px;
+}
+
+.compact-money {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.row-order {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+}
+
+.section-total {
+  margin-top: 14px;
+}
+
+.move-block {
+  display: grid;
+  gap: 8px;
+}
+
+.gmf-check {
+  justify-self: start;
+}
+
+.transfer-body {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.portfolio-block {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.modal-wide {
+  max-width: min(860px, calc(100vw - 32px));
+}
+
+.asset-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(140px, 0.7fr) minmax(140px, 0.8fr) minmax(0, 1fr) 40px;
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(8, 9, 11, 0.35);
 }
 
 .bars-chart-wrap {
@@ -325,7 +420,7 @@
 
 .holding-move-row {
   display: grid;
-  grid-template-columns: 88px minmax(110px, 0.9fr) minmax(130px, 1fr) minmax(120px, 0.9fr) minmax(0, 1.2fr) 40px;
+  grid-template-columns: 88px minmax(110px, 0.9fr) minmax(130px, 1fr) minmax(120px, 0.9fr) 40px;
   gap: 8px;
   align-items: center;
 }
@@ -355,7 +450,7 @@
 
 .move-legend {
   display: grid;
-  grid-template-columns: 88px minmax(110px, 0.9fr) minmax(130px, 1fr) minmax(120px, 0.9fr) minmax(0, 1.2fr) 40px;
+  grid-template-columns: 88px minmax(110px, 0.9fr) minmax(130px, 1fr) minmax(120px, 0.9fr) 40px;
   gap: 8px;
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -821,8 +916,14 @@ button:disabled {
   .holding-move-row,
   .move-legend,
   .patrimonio-linked-grid,
-  .invest-mini {
+  .invest-mini,
+  .compact-row,
+  .asset-card {
     grid-template-columns: 1fr;
+  }
+
+  .compact-money {
+    text-align: left;
   }
 
   .transfer-card,

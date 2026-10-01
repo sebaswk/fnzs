@@ -268,6 +268,16 @@
       value.textContent = format(slice.value);
       row.append(name, value);
       tip.append(title, row);
+      (slice.detail || []).forEach((line) => {
+        const extra = document.createElement("div");
+        extra.className = "tip-row";
+        const left = document.createElement("span");
+        left.textContent = line.label;
+        const right = document.createElement("strong");
+        right.textContent = line.value;
+        extra.append(left, right);
+        tip.appendChild(extra);
+      });
       if (event) placeTip(tip, wrap, event);
       else {
         tip.style.left = "50%";
@@ -341,38 +351,93 @@
     wrap.appendChild(legend);
   }
 
+  function textLength(node) {
+    try {
+      return node.getComputedTextLength();
+    } catch (error) {
+      return 0;
+    }
+  }
+
+  function trimLabel(node, full, maxWidth) {
+    node.textContent = full;
+    if (!(maxWidth > 8) || !textLength(node) || textLength(node) <= maxWidth) return;
+    let low = 1;
+    let high = full.length - 1;
+    let best = 1;
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      node.textContent = `${full.slice(0, mid).trimEnd()}…`;
+      if (textLength(node) <= maxWidth) {
+        best = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    node.textContent = `${full.slice(0, best).trimEnd()}…`;
+  }
+
+  function watchBarsSize(svg) {
+    if (svg.dataset.barsWatch || typeof ResizeObserver === "undefined") return;
+    svg.dataset.barsWatch = "1";
+    const observer = new ResizeObserver(() => {
+      const spec = svg._norteBars;
+      if (!spec || svg._norteBarsLock) return;
+      const width = Math.round(svg.getBoundingClientRect().width);
+      if (!(width > 40) || Math.abs(width - (svg._norteBarsWidth || 0)) < 4) return;
+      svg._norteBarsLock = true;
+      barsChart(svg, spec.bars, spec.options);
+      svg._norteBarsLock = false;
+    });
+    observer.observe(svg);
+  }
+
   function barsChart(svg, bars, options = {}) {
     clear(svg);
+    svg._norteBars = { bars, options };
     const format = options.format || String;
     const list = bars.length ? bars : [{ label: "Sin datos", value: 0, color: "#7a7f8a" }];
-    const width = 760;
-    const rowH = 68;
-    const height = 8 + list.length * rowH;
+    const rendered = Math.round(svg.getBoundingClientRect().width);
+    const sized = Boolean(options.labelPx || options.valuePx);
+    const usePixels = sized && rendered > 40;
+    const width = usePixels ? rendered : 760;
+    const labelSize = sized
+      ? (usePixels ? (options.labelPx || 18) : (options.labelPx || 18) * (760 / 420))
+      : 15;
+    const valueSize = sized
+      ? (usePixels ? (options.valuePx || 16) : (options.valuePx || 16) * (760 / 420))
+      : 14;
+    const barH = sized ? (usePixels ? 16 : 16 * (760 / 420)) : 18;
+    const rowH = sized ? Math.ceil(10 + labelSize + 12 + barH + 12) : 68;
+    const height = (sized ? 6 : 8) + list.length * rowH;
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
     svg.setAttribute("role", "img");
+    if (usePixels) svg._norteBarsWidth = width;
     const padX = 2;
     const innerW = width - padX * 2;
     const max = Math.max(...list.map((bar) => Math.abs(Number(bar.value) || 0)), 1);
 
     list.forEach((bar, index) => {
-      const y = 6 + index * rowH;
+      const y = (sized ? 4 : 6) + index * rowH;
+      const textY = sized ? y + labelSize * 0.82 : y + 16;
+      const barY = sized ? textY + 12 : y + 28;
       const name = el("text", {
         x: padX,
-        y: y + 16,
+        y: textY,
         fill: "#efe8dc",
-        "font-size": "15",
+        "font-size": String(labelSize),
+        "font-weight": sized ? "500" : "400",
         "font-family": "Outfit, sans-serif"
       });
       const fullLabel = bar.label || "Posición";
-      name.textContent = fullLabel.length > 42 ? `${fullLabel.slice(0, 40)}…` : fullLabel;
-      const title = el("title");
-      title.textContent = `${fullLabel}: ${format(bar.value)}`;
-      name.appendChild(title);
+      name.textContent = !sized && fullLabel.length > 42 ? `${fullLabel.slice(0, 40)}…` : fullLabel;
       const value = el("text", {
         x: width - padX,
-        y: y + 16,
-        fill: "#9a9286",
-        "font-size": "14",
+        y: textY,
+        fill: options.valueFill || "#9a9286",
+        "font-size": String(valueSize),
+        "font-weight": sized ? "500" : "400",
         "font-family": "Outfit, sans-serif",
         "text-anchor": "end"
       });
@@ -381,24 +446,32 @@
       const w = (amount / max) * innerW;
       svg.appendChild(el("rect", {
         x: padX,
-        y: y + 28,
+        y: barY,
         width: innerW,
-        height: 18,
-        rx: 9,
+        height: barH,
+        rx: barH / 2,
         fill: "rgba(239,232,220,0.06)"
       }));
       if (w > 0) {
         svg.appendChild(el("rect", {
           x: padX,
-          y: y + 28,
+          y: barY,
           width: Math.max(w, 8),
-          height: 18,
-          rx: 9,
+          height: barH,
+          rx: barH / 2,
           fill: bar.color || "#8aa4c4"
         }));
       }
       svg.append(name, value);
+      if (sized) {
+        const valueW = textLength(value);
+        trimLabel(name, fullLabel, Math.max(48, width - padX * 2 - valueW - 20));
+      }
+      const title = el("title");
+      title.textContent = `${fullLabel}: ${format(bar.value)}`;
+      name.appendChild(title);
     });
+    if (sized) watchBarsSize(svg);
   }
 
   window.NorteCharts = { lineChart, donutChart, barsChart };
