@@ -59,28 +59,41 @@
           <button class="btn btn-ghost" type="button" id="btn-ejemplo">Cargar ejemplo</button>
         </div>
         <div class="context-row">
-          <div class="context-block">
-            <span class="context-label">Año</span>
-            <div class="year-nav">
-              <button class="btn" type="button" id="year-prev" aria-label="Año anterior">‹</button>
-              <strong id="year-label">2026</strong>
-              <button class="btn" type="button" id="year-next" aria-label="Año siguiente">›</button>
+          <div class="context-block context-stack">
+            <div class="context-title">
+              <span class="context-label">Año</span>
             </div>
-            <div class="year-chips" id="year-chips"></div>
+            <div class="context-items">
+              <div class="year-nav">
+                <button class="btn" type="button" id="year-prev" aria-label="Año anterior">‹</button>
+                <strong id="year-label">2026</strong>
+                <button class="btn" type="button" id="year-next" aria-label="Año siguiente">›</button>
+              </div>
+              <div class="year-chips" id="year-chips"></div>
+            </div>
           </div>
-          <div class="context-block">
-            <span class="context-label">Banco</span>
-            <div class="year-chips" id="bank-chips" aria-label="Filtro por banco"></div>
-            <button class="btn btn-ghost" type="button" id="btn-manage-banks">Bancos</button>
+          <div class="context-block context-stack">
+            <div class="context-title">
+              <span class="context-label">Banco</span>
+              <button class="btn" type="button" id="btn-manage-banks" aria-label="Agregar banco">+</button>
+            </div>
+            <div class="context-items">
+              <div class="year-chips" id="bank-chips" aria-label="Filtro por banco"></div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="tabs overview-tabs" role="tablist" aria-label="Vistas del año">
-        <button type="button" role="tab" data-tab="recopilado" class="is-active">Recopilado</button>
-        <button type="button" role="tab" data-tab="meses">Meses</button>
-        <button type="button" role="tab" data-tab="patrimonio">Patrimonio</button>
-        <button type="button" role="tab" data-tab="factura">Factura</button>
+      <div class="overview-tabbar">
+        <div class="tabs overview-tabs" role="tablist" aria-label="Vistas del año">
+          <button type="button" role="tab" data-tab="recopilado" class="is-active">Recopilado</button>
+          <button type="button" role="tab" data-tab="meses">Meses</button>
+          <button type="button" role="tab" data-tab="patrimonio">Patrimonio</button>
+          <button type="button" role="tab" data-tab="factura">Factura</button>
+        </div>
+        <div class="tabs" role="tablist" aria-label="Tesorería">
+          <button type="button" role="tab" data-tab="tesoreria" id="btn-tesoreria">Tesorería</button>
+        </div>
       </div>
 
       <div id="panel-recopilado">
@@ -177,6 +190,20 @@
 
       <div id="panel-factura" hidden>
         <article class="card invoice" id="invoice"></article>
+      </div>
+
+      <div id="panel-tesoreria" hidden>
+        <div class="list-head">
+          <div>
+            <h2>Tesorería</h2>
+            <p class="faint">Para organizarse, estimar dinero y anotar lo que quieras recordar.</p>
+          </div>
+          <div class="head-actions">
+            <button class="btn" type="button" id="add-custom-table">Nueva tabla</button>
+            <button class="btn" type="button" id="add-note-table">Notas</button>
+          </div>
+        </div>
+        <div class="treasury-board" id="treasury-board"></div>
       </div>
     </section>
 

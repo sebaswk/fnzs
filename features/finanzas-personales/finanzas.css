@@ -54,6 +54,170 @@
   grid-column: 1 / -1;
 }
 
+.context-stack {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.context-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+}
+
+.context-title .btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 999px;
+}
+
+.context-items {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.overview-tabbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.overview-tabbar > .tabs:last-child {
+  margin-left: auto;
+}
+
+.overview-tabbar .overview-tabs {
+  margin: 0;
+}
+
+.treasury-board {
+  display: grid;
+  gap: 14px;
+  align-items: start;
+}
+
+.treasury-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.treasury-card.card-pad {
+  padding: 14px;
+}
+
+.treasury-card h2 {
+  font-size: 1.15rem;
+}
+
+.treasury-card .list-head {
+  margin-bottom: 10px;
+}
+
+.treasury-card .list-head .icon-btn {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+}
+
+.treasury-card .faint {
+  margin-top: 4px;
+}
+
+.treasury-salary-field {
+  max-width: 100%;
+  margin-bottom: 10px;
+}
+
+.treasury-tools,
+.treasury-order,
+.treasury-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.treasury-tools {
+  margin-bottom: 10px;
+}
+
+.treasury-col {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.treasury-col > input,
+.treasury-col > .pick {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+
+.treasury-card .treasury-tools .btn,
+.treasury-card .treasury-order .btn {
+  padding: 6px 10px;
+}
+
+.treasury-table {
+  font-size: 13px;
+}
+
+.treasury-table th:first-child,
+.treasury-table td:first-child,
+.treasury-custom th,
+.treasury-custom td {
+  text-align: left;
+}
+
+.treasury-table td {
+  white-space: normal;
+  vertical-align: middle;
+}
+
+.treasury-table input,
+.treasury-col > input,
+.treasury-card .list-head input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 7px 8px;
+  font-size: 13px;
+  outline: none;
+}
+
+.treasury-table input:focus,
+.treasury-col > input:focus,
+.treasury-card .list-head input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(212, 196, 160, 0.12);
+}
+
+.treasury-table .pick-btn {
+  padding: 7px 28px 7px 8px;
+  font-size: 13px;
+}
+
+.treasury-table .icon-btn {
+  width: 40px;
+  height: 40px;
+}
+
 .context-label,
 .bank-label {
   font-size: 12px;
@@ -985,6 +1149,11 @@ button:disabled {
   overflow: hidden;
 }
 
+#banks-modal {
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+}
+
 .modal .invoice {
   margin-top: 0;
   background: transparent;
@@ -1008,6 +1177,7 @@ button:disabled {
 
 @media (max-width: 960px) {
   .overview-grid,
+  .treasury-row,
   .workspace,
   .identity-row,
   .context-row,
@@ -1027,6 +1197,10 @@ button:disabled {
   .compact-row,
   .asset-card {
     grid-template-columns: 1fr;
+  }
+
+  .treasury-card {
+    grid-column: 1 / -1 !important;
   }
 
   .compact-money {

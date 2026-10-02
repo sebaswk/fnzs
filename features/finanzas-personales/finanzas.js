@@ -274,6 +274,7 @@
     savingsLayout: "compact",
     investLayout: "compact",
     flowChartsOpen: false,
+    treasury: { salary: 0, rows: [], investments: [], tables: [] },
     banks: [],
     accounts: [],
     assets: [],
@@ -292,7 +293,8 @@
     recopilado: document.getElementById("panel-recopilado"),
     meses: document.getElementById("panel-meses"),
     patrimonio: document.getElementById("panel-patrimonio"),
-    factura: document.getElementById("panel-factura")
+    factura: document.getElementById("panel-factura"),
+    tesoreria: document.getElementById("panel-tesoreria")
   };
 
   function money(value) {
@@ -828,6 +830,16 @@
     return button;
   }
 
+  function editButton(onClick) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "icon-btn";
+    button.setAttribute("aria-label", "Editar");
+    button.textContent = "✎";
+    button.addEventListener("click", onClick);
+    return button;
+  }
+
   function monthHasData(entry) {
     if (!entry) return false;
     const t = monthTotals(entry);
@@ -844,9 +856,10 @@
   function setTab(tab) {
     state.tab = tab;
     Object.entries(panels).forEach(([name, node]) => {
+      if (!node) return;
       node.hidden = name !== tab;
     });
-    document.querySelectorAll(".overview-tabs [data-tab]").forEach((button) => {
+    document.querySelectorAll(".overview-tabbar [data-tab]").forEach((button) => {
       button.classList.toggle("is-active", button.dataset.tab === tab);
     });
     if (tab === "factura") renderInvoice();
@@ -856,6 +869,750 @@
       renderSavings();
       renderInvestments();
     }
+    if (tab === "tesoreria") renderTreasury();
+  }
+
+  function normalizeCustomTable(table) {
+    const source = table && typeof table === "object" ? table : {};
+    const columns = Array.isArray(source.columns) && source.columns.length
+      ? source.columns.map((col) => ({
+        id: col.id || uid(),
+        name: col.name || "Columna",
+        numeric: Boolean(col.numeric),
+        month: Boolean(col.month)
+      }))
+      : [{ id: uid(), name: "Columna", numeric: false, month: false }];
+    const rows = Array.isArray(source.rows) ? source.rows.map((row) => {
+      const cells = {};
+      columns.forEach((col) => {
+        const raw = row.cells ? row.cells[col.id] : "";
+        cells[col.id] = col.numeric ? (Number(raw) || 0) : (raw == null ? "" : String(raw));
+      });
+      return { id: row.id || uid(), cells };
+    }) : [];
+    let total = null;
+    if (source.total && columns.some((col) => col.id === source.total.columnId)) {
+      total = {
+        columnId: source.total.columnId,
+        op: source.total.op === "sub" ? "sub" : "sum"
+      };
+    }
+    return {
+      id: source.id || uid(),
+      name: source.name || (source.kind === "note" ? "Notas" : "Nueva tabla"),
+      kind: source.kind === "note" ? "note" : "custom",
+      done: Boolean(source.done),
+      columns,
+      rows,
+      total,
+      rowTotal: source.kind === "note" && Boolean(source.rowTotal),
+      sumRowTotals: source.kind === "note" && Boolean(source.rowTotal) && Boolean(source.sumRowTotals)
+    };
+  }
+
+  function normalizeTreasury(raw) {
+    const source = raw && typeof raw === "object" ? raw : {};
+    const rows = Array.isArray(source.rows) ? source.rows.map((row) => ({
+      id: row.id || uid(),
+      concept: row.concept || "",
+      amount: Number(row.amount) || 0
+    })) : [];
+    const investments = Array.isArray(source.investments) ? source.investments.map((row) => ({
+      id: row.id || uid(),
+      month: row.month || "",
+      amount: Number(row.amount) || 0,
+      day: row.day || ""
+    })) : [];
+    const tables = Array.isArray(source.tables) ? source.tables.map(normalizeCustomTable) : [];
+    const spans = {};
+    if (source.spans && typeof source.spans === "object") {
+      Object.entries(source.spans).forEach(([id, value]) => {
+        const span = Number(value);
+        if (span >= 1 && span <= 4) spans[id] = span;
+      });
+    }
+    const layout = Array.isArray(source.layout)
+      ? source.layout.filter((row) => Array.isArray(row)).map((row) => row.filter((id) => typeof id === "string"))
+      : [];
+    return {
+      salary: Number(source.salary) || 0,
+      rows,
+      investments,
+      tables,
+      layout,
+      spans
+    };
+  }
+
+  function widgetSpan(id) {
+    const span = Number(state.treasury.spans && state.treasury.spans[id]);
+    return span >= 1 && span <= 4 ? span : 2;
+  }
+
+  function ensureLayout() {
+    if (!state.treasury.spans || typeof state.treasury.spans !== "object") state.treasury.spans = {};
+    const ids = ["values", "investments", ...state.treasury.tables.map((table) => table.id)];
+    const known = new Set(ids);
+    const layout = (Array.isArray(state.treasury.layout) ? state.treasury.layout : [])
+      .map((row) => row.filter((id) => known.has(id)))
+      .filter((row) => row.length);
+    const placed = new Set(layout.flat());
+    ids.forEach((id) => {
+      if (!placed.has(id)) layout.push([id]);
+      if (!state.treasury.spans[id]) state.treasury.spans[id] = 2;
+    });
+    state.treasury.layout = layout;
+  }
+
+  function findWidget(id) {
+    for (let rowIndex = 0; rowIndex < state.treasury.layout.length; rowIndex += 1) {
+      const column = state.treasury.layout[rowIndex].indexOf(id);
+      if (column >= 0) return { rowIndex, column };
+    }
+    return null;
+  }
+
+  function rowUsage(row) {
+    return row.reduce((sum, id) => sum + widgetSpan(id), 0);
+  }
+
+  function resizeWidget(id, delta) {
+    ensureLayout();
+    const current = widgetSpan(id);
+    const next = Math.min(4, Math.max(1, current + delta));
+    if (next === current) return;
+    const pos = findWidget(id);
+    if (!pos) return;
+    const others = rowUsage(state.treasury.layout[pos.rowIndex]) - current;
+    if (others + next > 4) return;
+    state.treasury.spans[id] = next;
+  }
+
+  function canMoveHorizontal(id, delta) {
+    const pos = findWidget(id);
+    if (!pos) return false;
+    const row = state.treasury.layout[pos.rowIndex];
+    const next = pos.column + delta;
+    if (next >= 0 && next < row.length) return true;
+    const target = state.treasury.layout[pos.rowIndex + delta];
+    if (!target) return false;
+    return rowUsage(target) + widgetSpan(id) <= 4;
+  }
+
+  function moveWidgetHorizontal(id, delta) {
+    ensureLayout();
+    if (!canMoveHorizontal(id, delta)) return;
+    const pos = findWidget(id);
+    const row = state.treasury.layout[pos.rowIndex];
+    const next = pos.column + delta;
+    if (next >= 0 && next < row.length) {
+      const [item] = row.splice(pos.column, 1);
+      row.splice(next, 0, item);
+      return;
+    }
+    const target = state.treasury.layout[pos.rowIndex + delta];
+    row.splice(pos.column, 1);
+    if (delta < 0) target.push(id);
+    else target.unshift(id);
+    state.treasury.layout = state.treasury.layout.filter((line) => line.length);
+  }
+
+  function moveWidgetVertical(id, delta) {
+    ensureLayout();
+    const pos = findWidget(id);
+    if (!pos) return;
+    const row = state.treasury.layout[pos.rowIndex];
+    const alone = row.length === 1;
+    if (delta < 0 && pos.rowIndex === 0 && alone) return;
+    if (delta > 0 && pos.rowIndex === state.treasury.layout.length - 1 && alone) return;
+    row.splice(pos.column, 1);
+    const insertAt = delta < 0
+      ? pos.rowIndex - (alone ? 1 : 0)
+      : pos.rowIndex + (alone ? 2 : 1);
+    state.treasury.layout.splice(Math.max(0, insertAt), 0, [id]);
+    state.treasury.layout = state.treasury.layout.filter((line) => line.length);
+  }
+
+  function applyWidgetFrame(card, id) {
+    card.style.gridColumn = `span ${widgetSpan(id)}`;
+  }
+
+  function mountWidget(card, id) {
+    const pos = findWidget(id);
+    const row = pos ? state.treasury.layout[pos.rowIndex] : [];
+    const span = widgetSpan(id);
+    const others = pos ? rowUsage(row) - span : 0;
+    applyWidgetFrame(card, id);
+    const bar = document.createElement("div");
+    bar.className = "treasury-tools treasury-widget-bar";
+    const addControl = (label, aria, disabled, onClick) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn";
+      button.textContent = label;
+      button.setAttribute("aria-label", aria);
+      button.disabled = disabled;
+      button.addEventListener("click", () => {
+        onClick();
+        renderTreasury();
+      });
+      bar.appendChild(button);
+    };
+    const aloneTop = pos && pos.rowIndex === 0 && row.length === 1;
+    const aloneBottom = pos && pos.rowIndex === state.treasury.layout.length - 1 && row.length === 1;
+    addControl("Estrecha", "Más estrecha", span <= 1, () => resizeWidget(id, -1));
+    addControl("Ancha", "Más ancha", span >= 4 || others + span + 1 > 4, () => resizeWidget(id, 1));
+    addControl("←", "Mover a la izquierda", !canMoveHorizontal(id, -1), () => moveWidgetHorizontal(id, -1));
+    addControl("→", "Mover a la derecha", !canMoveHorizontal(id, 1), () => moveWidgetHorizontal(id, 1));
+    addControl("↑", "Mover arriba", Boolean(aloneTop), () => moveWidgetVertical(id, -1));
+    addControl("↓", "Mover abajo", Boolean(aloneBottom), () => moveWidgetVertical(id, 1));
+    card.insertBefore(bar, card.firstChild);
+  }
+
+  function moveListItem(list, index, delta) {
+    const next = index + delta;
+    if (next < 0 || next >= list.length) return;
+    const [item] = list.splice(index, 1);
+    list.splice(next, 0, item);
+  }
+
+  function treasuryShare(amount) {
+    const salary = Number(state.treasury.salary) || 0;
+    const value = Number(amount) || 0;
+    if (salary <= 0) return 0;
+    return (value / salary) * 100;
+  }
+
+  function treasuryValuesTotal() {
+    return state.treasury.rows.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+  }
+
+  function paintTreasuryTotals() {
+    const total = treasuryValuesTotal();
+    const saving = total - (Number(state.treasury.salary) || 0);
+    const totalEl = document.getElementById("treasury-total");
+    const savingEl = document.getElementById("treasury-saving");
+    if (totalEl) totalEl.textContent = money(total);
+    if (savingEl) savingEl.textContent = money(saving);
+    state.treasury.rows.forEach((row) => {
+      const cell = document.querySelector(`.treasury-pct[data-id="${row.id}"]`);
+      if (cell) cell.textContent = Norte.formatPct(treasuryShare(row.amount));
+    });
+  }
+
+  function customColumnNumbers(table, columnId) {
+    return table.rows.map((row) => {
+      const parsed = Number.parseFloat(row.cells[columnId]);
+      return Number.isFinite(parsed) ? parsed : 0;
+    });
+  }
+
+  function customTotalValue(table) {
+    if (!table.total) return 0;
+    const nums = customColumnNumbers(table, table.total.columnId);
+    if (!nums.length) return 0;
+    if (table.total.op === "sub") return nums.slice(1).reduce((acc, n) => acc - n, nums[0]);
+    return nums.reduce((acc, n) => acc + n, 0);
+  }
+
+  function monthRowTotal(table, row) {
+    return table.columns.reduce((sum, col) => {
+      if (!col.numeric) return sum;
+      const parsed = Number(row.cells[col.id]);
+      return sum + (Number.isFinite(parsed) ? parsed : 0);
+    }, 0);
+  }
+
+  function paintCustomTotal(table) {
+    const cell = document.getElementById(`custom-total-${table.id}`);
+    if (cell) cell.textContent = money(customTotalValue(table));
+    if (!table.rowTotal) return;
+    table.rows.forEach((row) => {
+      const monthCell = document.getElementById(`row-total-${table.id}-${row.id}`);
+      if (monthCell) monthCell.textContent = money(monthRowTotal(table, row));
+    });
+    const grand = document.getElementById(`row-grand-${table.id}`);
+    if (grand) {
+      const sum = table.rows.reduce((acc, row) => acc + monthRowTotal(table, row), 0);
+      grand.textContent = money(sum);
+    }
+  }
+
+  function paintInvestNoteTotal() {
+    const total = state.treasury.investments.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+    const cell = document.getElementById("treasury-invest-total");
+    if (cell) cell.textContent = money(total);
+  }
+
+  function orderButtons(index, length, onUp, onDown) {
+    const box = document.createElement("div");
+    box.className = "treasury-order";
+    const up = document.createElement("button");
+    up.type = "button";
+    up.className = "btn";
+    up.textContent = "↑";
+    up.setAttribute("aria-label", "Subir");
+    up.disabled = index === 0;
+    up.addEventListener("click", onUp);
+    const down = document.createElement("button");
+    down.type = "button";
+    down.className = "btn";
+    down.textContent = "↓";
+    down.setAttribute("aria-label", "Bajar");
+    down.disabled = index === length - 1;
+    down.addEventListener("click", onDown);
+    box.append(up, down);
+    return box;
+  }
+
+  function treasuryCard(title, note) {
+    const card = document.createElement("section");
+    card.className = "card card-pad treasury-card";
+    const head = document.createElement("div");
+    head.className = "list-head";
+    const titleWrap = document.createElement("div");
+    const heading = document.createElement("h2");
+    heading.textContent = title;
+    titleWrap.appendChild(heading);
+    if (note) {
+      titleWrap.appendChild(Object.assign(document.createElement("p"), { className: "faint", textContent: note }));
+    }
+    head.appendChild(titleWrap);
+    card.appendChild(head);
+    return { card, head };
+  }
+
+  function renderValuesTable(board) {
+    const { card, head } = treasuryCard("Tabla de valores", "El porcentaje de cada fila se calcula sobre el salario.");
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "btn";
+    add.textContent = "Añadir fila";
+    add.addEventListener("click", () => {
+      state.treasury.rows.push({ id: uid(), concept: "", amount: 0 });
+      renderTreasury();
+    });
+    head.appendChild(add);
+    const salaryField = document.createElement("div");
+    salaryField.className = "field treasury-salary-field";
+    const salaryLabel = document.createElement("label");
+    salaryLabel.htmlFor = "treasury-salary";
+    salaryLabel.textContent = "Salario";
+    const salaryInput = document.createElement("input");
+    salaryInput.id = "treasury-salary";
+    salaryInput.type = "number";
+    salaryInput.min = "0";
+    salaryInput.step = "0.01";
+    salaryInput.placeholder = "0";
+    salaryInput.inputMode = "decimal";
+    salaryInput.value = state.treasury.salary ? String(state.treasury.salary) : "";
+    salaryInput.addEventListener("input", () => {
+      const parsed = Number.parseFloat(salaryInput.value);
+      state.treasury.salary = Number.isFinite(parsed) ? parsed : 0;
+      paintTreasuryTotals();
+    });
+    salaryField.append(salaryLabel, salaryInput);
+    const wrap = document.createElement("div");
+    wrap.className = "table-wrap";
+    const table = document.createElement("table");
+    table.className = "treasury-table";
+    const thead = document.createElement("thead");
+    const hr = document.createElement("tr");
+    ["Concepto", "Valor", "Porcentaje", ""].forEach((text) => {
+      hr.appendChild(Object.assign(document.createElement("th"), { textContent: text }));
+    });
+    thead.appendChild(hr);
+    const tbody = document.createElement("tbody");
+    state.treasury.rows.forEach((row) => {
+      const tr = document.createElement("tr");
+      const conceptCell = document.createElement("td");
+      conceptCell.appendChild(makeInput(row.concept, (input) => {
+        row.concept = input.value;
+      }, { type: "text", placeholder: "Concepto" }));
+      const valueCell = document.createElement("td");
+      valueCell.appendChild(moneyField(row.amount, (val) => {
+        row.amount = val;
+        paintTreasuryTotals();
+      }));
+      const pctCell = document.createElement("td");
+      pctCell.className = "treasury-pct";
+      pctCell.dataset.id = row.id;
+      const removeCell = document.createElement("td");
+      removeCell.appendChild(removeButton(() => {
+        state.treasury.rows = state.treasury.rows.filter((item) => item.id !== row.id);
+        renderTreasury();
+      }));
+      tr.append(conceptCell, valueCell, pctCell, removeCell);
+      tbody.appendChild(tr);
+    });
+    const tfoot = document.createElement("tfoot");
+    const savingRow = document.createElement("tr");
+    const savingLabel = document.createElement("td");
+    savingLabel.textContent = "Ahorro";
+    const savingValue = document.createElement("td");
+    savingValue.id = "treasury-saving";
+    savingRow.append(savingLabel, savingValue, document.createElement("td"), document.createElement("td"));
+    const totalRow = document.createElement("tr");
+    totalRow.className = "portfolio-total";
+    const totalLabel = document.createElement("td");
+    totalLabel.textContent = "TOTAL";
+    const totalValue = document.createElement("td");
+    totalValue.id = "treasury-total";
+    totalRow.append(totalLabel, totalValue, document.createElement("td"), document.createElement("td"));
+    tfoot.append(savingRow, totalRow);
+    table.append(thead, tbody, tfoot);
+    wrap.appendChild(table);
+    card.append(salaryField, wrap);
+    applyWidgetFrame(card, "values");
+    board.appendChild(card);
+  }
+
+  function renderInvestNotes(board) {
+    const { card, head } = treasuryCard("Inversiones");
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "btn";
+    add.textContent = "Añadir fila";
+    add.addEventListener("click", () => {
+      state.treasury.investments.push({ id: uid(), month: "", amount: 0, day: "" });
+      renderTreasury();
+    });
+    head.appendChild(add);
+    const wrap = document.createElement("div");
+    wrap.className = "table-wrap";
+    const table = document.createElement("table");
+    table.className = "treasury-table";
+    const thead = document.createElement("thead");
+    const hr = document.createElement("tr");
+    ["Mes", "Valor", "Día", ""].forEach((text) => {
+      hr.appendChild(Object.assign(document.createElement("th"), { textContent: text }));
+    });
+    thead.appendChild(hr);
+    const tbody = document.createElement("tbody");
+    state.treasury.investments.forEach((row) => {
+      const tr = document.createElement("tr");
+      const monthCell = document.createElement("td");
+      monthCell.appendChild(makeInput(row.month, (input) => {
+        row.month = input.value;
+      }, { type: "text", placeholder: "Mes" }));
+      const valueCell = document.createElement("td");
+      valueCell.appendChild(moneyField(row.amount, (val) => {
+        row.amount = val;
+        paintInvestNoteTotal();
+      }));
+      const dayCell = document.createElement("td");
+      dayCell.appendChild(makeInput(row.day, (input) => {
+        row.day = input.value;
+      }, { type: "text", placeholder: "Día" }));
+      const removeCell = document.createElement("td");
+      removeCell.appendChild(removeButton(() => {
+        state.treasury.investments = state.treasury.investments.filter((item) => item.id !== row.id);
+        renderTreasury();
+      }));
+      tr.append(monthCell, valueCell, dayCell, removeCell);
+      tbody.appendChild(tr);
+    });
+    const tfoot = document.createElement("tfoot");
+    const totalRow = document.createElement("tr");
+    totalRow.className = "portfolio-total";
+    const totalLabel = document.createElement("td");
+    totalLabel.textContent = "TOTAL";
+    const totalValue = document.createElement("td");
+    totalValue.id = "treasury-invest-total";
+    totalRow.append(totalLabel, totalValue, document.createElement("td"), document.createElement("td"));
+    tfoot.appendChild(totalRow);
+    table.append(thead, tbody, tfoot);
+    wrap.appendChild(table);
+    card.appendChild(wrap);
+    applyWidgetFrame(card, "investments");
+    board.appendChild(card);
+  }
+
+  function renderCustomTable(board, table) {
+    const editing = !table.done;
+    const { card, head } = treasuryCard("");
+    const titleWrap = head.querySelector("div");
+    titleWrap.replaceChildren();
+    if (editing) {
+      titleWrap.appendChild(makeInput(table.name, (input) => {
+        table.name = input.value;
+      }, { type: "text", placeholder: "Nombre de la tabla" }));
+    } else {
+      titleWrap.appendChild(Object.assign(document.createElement("h2"), {
+        textContent: table.name || "Tabla"
+      }));
+    }
+    const actions = document.createElement("div");
+    actions.className = "treasury-order";
+    if (editing) {
+      const finish = document.createElement("button");
+      finish.type = "button";
+      finish.className = "btn";
+      finish.textContent = "Listo";
+      finish.addEventListener("click", () => {
+        table.done = true;
+        renderTreasury();
+      });
+      actions.append(
+        finish,
+        removeButton(() => {
+          state.treasury.tables = state.treasury.tables.filter((item) => item.id !== table.id);
+          renderTreasury();
+        })
+      );
+    } else {
+      actions.appendChild(editButton(() => {
+        table.done = false;
+        renderTreasury();
+      }));
+    }
+    head.appendChild(actions);
+
+    const tools = document.createElement("div");
+    tools.className = "treasury-tools";
+    if (!editing) tools.hidden = true;
+    const addCol = document.createElement("button");
+    addCol.type = "button";
+    addCol.className = "btn";
+    addCol.textContent = "Añadir columna";
+    addCol.addEventListener("click", () => {
+      const column = { id: uid(), name: "Columna", numeric: false, month: false };
+      table.columns.push(column);
+      table.rows.forEach((row) => { row.cells[column.id] = ""; });
+      renderTreasury();
+    });
+    const addRow = document.createElement("button");
+    addRow.type = "button";
+    addRow.className = "btn";
+    addRow.textContent = "Añadir fila";
+    addRow.addEventListener("click", () => {
+      const cells = {};
+      table.columns.forEach((col) => { cells[col.id] = col.numeric ? 0 : ""; });
+      table.rows.push({ id: uid(), cells });
+      renderTreasury();
+    });
+    const totalBtn = document.createElement("button");
+    totalBtn.type = "button";
+    totalBtn.className = "btn";
+    totalBtn.textContent = table.total ? "Quitar total" : "Agregar total";
+    totalBtn.addEventListener("click", () => {
+      if (table.total) {
+        table.total = null;
+      } else if (table.columns.length) {
+        const preferred = table.columns.find((col) => col.numeric) || table.columns[0];
+        table.total = { columnId: preferred.id, op: "sum" };
+      }
+      renderTreasury();
+    });
+    tools.append(addCol, addRow, totalBtn);
+    if (table.kind === "note") {
+      const rightBtn = document.createElement("button");
+      rightBtn.type = "button";
+      rightBtn.className = "btn";
+      rightBtn.textContent = table.rowTotal ? "Quitar total derecha" : "Total a la derecha";
+      rightBtn.addEventListener("click", () => {
+        table.rowTotal = !table.rowTotal;
+        if (!table.rowTotal) table.sumRowTotals = false;
+        renderTreasury();
+      });
+      tools.appendChild(rightBtn);
+      if (table.rowTotal) {
+        const downBtn = document.createElement("button");
+        downBtn.type = "button";
+        downBtn.className = "btn";
+        downBtn.textContent = table.sumRowTotals ? "Quitar total abajo" : "Total abajo";
+        downBtn.addEventListener("click", () => {
+          table.sumRowTotals = !table.sumRowTotals;
+          renderTreasury();
+        });
+        tools.appendChild(downBtn);
+      }
+    }
+    if (editing) card.appendChild(tools);
+
+    if (editing) table.columns.forEach((col, colIndex) => {
+      const line = document.createElement("div");
+      line.className = "treasury-col";
+      line.appendChild(makeInput(col.name, (input) => {
+        col.name = input.value;
+        const label = document.getElementById(`col-label-${col.id}`);
+        if (label) label.textContent = input.value || "Columna";
+      }, { type: "text", placeholder: "Columna" }));
+      if (!col.month) {
+        line.appendChild(makeSelect(col.numeric ? "number" : "text", [
+          { value: "text", label: "Texto" },
+          { value: "number", label: "Número" }
+        ], (value) => {
+          const numeric = value === "number";
+          if (col.numeric === numeric) return;
+          col.numeric = numeric;
+          table.rows.forEach((row) => {
+            row.cells[col.id] = numeric ? (Number(row.cells[col.id]) || 0) : String(row.cells[col.id] ?? "");
+          });
+          renderTreasury();
+        }));
+      }
+      line.appendChild(orderButtons(colIndex, table.columns.length, () => {
+        moveListItem(table.columns, colIndex, -1);
+        renderTreasury();
+      }, () => {
+        moveListItem(table.columns, colIndex, 1);
+        renderTreasury();
+      }));
+      if (!col.month) {
+        line.appendChild(removeButton(() => {
+          table.columns = table.columns.filter((item) => item.id !== col.id);
+          table.rows.forEach((row) => { delete row.cells[col.id]; });
+          if (table.total && table.total.columnId === col.id) table.total = null;
+          renderTreasury();
+        }));
+      }
+      card.appendChild(line);
+    });
+
+    if (editing && table.total) {
+      const totalTools = document.createElement("div");
+      totalTools.className = "treasury-tools";
+      totalTools.append(
+        makeSelect(table.total.columnId, table.columns.map((col) => ({
+          value: col.id,
+          label: col.name || "Columna"
+        })), (value) => {
+          table.total.columnId = value;
+          paintCustomTotal(table);
+        }),
+        makeSelect(table.total.op, [
+          { value: "sum", label: "Suma" },
+          { value: "sub", label: "Resta" }
+        ], (value) => {
+          table.total.op = value === "sub" ? "sub" : "sum";
+          paintCustomTotal(table);
+        })
+      );
+      card.appendChild(totalTools);
+    }
+
+    const wrap = document.createElement("div");
+    wrap.className = "table-wrap";
+    const grid = document.createElement("table");
+    grid.className = "treasury-table treasury-custom";
+    const thead = document.createElement("thead");
+    const hr = document.createElement("tr");
+    table.columns.forEach((col) => {
+      const th = document.createElement("th");
+      th.id = `col-label-${col.id}`;
+      th.textContent = col.name || "Columna";
+      hr.appendChild(th);
+    });
+    if (table.rowTotal) hr.appendChild(Object.assign(document.createElement("th"), { textContent: "Total" }));
+    if (editing) hr.appendChild(document.createElement("th"));
+    thead.appendChild(hr);
+    const tbody = document.createElement("tbody");
+    table.rows.forEach((row, rowIndex) => {
+      const tr = document.createElement("tr");
+      table.columns.forEach((col) => {
+        const td = document.createElement("td");
+        if (col.numeric) {
+          td.appendChild(moneyField(row.cells[col.id], (val) => {
+            row.cells[col.id] = val;
+            paintCustomTotal(table);
+          }));
+        } else {
+          td.appendChild(makeInput(row.cells[col.id], (input) => {
+            row.cells[col.id] = input.value;
+            paintCustomTotal(table);
+          }, { type: "text", placeholder: "Nota" }));
+        }
+        tr.appendChild(td);
+      });
+      if (table.rowTotal) {
+        const totalCell = document.createElement("td");
+        const totalValue = document.createElement("span");
+        totalValue.id = `row-total-${table.id}-${row.id}`;
+        totalCell.appendChild(totalValue);
+        tr.appendChild(totalCell);
+      }
+      if (editing) {
+        const actionsCell = document.createElement("td");
+        const rowActions = document.createElement("div");
+        rowActions.className = "treasury-row-actions";
+        rowActions.append(
+          orderButtons(rowIndex, table.rows.length, () => {
+            moveListItem(table.rows, rowIndex, -1);
+            renderTreasury();
+          }, () => {
+            moveListItem(table.rows, rowIndex, 1);
+            renderTreasury();
+          }),
+          removeButton(() => {
+            table.rows = table.rows.filter((item) => item.id !== row.id);
+            renderTreasury();
+          })
+        );
+        actionsCell.appendChild(rowActions);
+        tr.appendChild(actionsCell);
+      }
+      tbody.appendChild(tr);
+    });
+    grid.append(thead, tbody);
+    if (table.total || (table.rowTotal && table.sumRowTotals)) {
+      const tfoot = document.createElement("tfoot");
+      const totalRow = document.createElement("tr");
+      totalRow.className = "portfolio-total";
+      table.columns.forEach((col, colIndex) => {
+        const td = document.createElement("td");
+        if (colIndex === 0) td.textContent = "TOTAL";
+        if (table.total && col.id === table.total.columnId) {
+          if (colIndex === 0) td.appendChild(document.createTextNode(" "));
+          const value = document.createElement("span");
+          value.id = `custom-total-${table.id}`;
+          td.appendChild(value);
+        }
+        totalRow.appendChild(td);
+      });
+      if (table.rowTotal) {
+        const monthTotalCell = document.createElement("td");
+        if (table.sumRowTotals) {
+          const grand = document.createElement("span");
+          grand.id = `row-grand-${table.id}`;
+          monthTotalCell.appendChild(grand);
+        }
+        totalRow.appendChild(monthTotalCell);
+      }
+      if (editing) totalRow.appendChild(document.createElement("td"));
+      tfoot.appendChild(totalRow);
+      grid.appendChild(tfoot);
+    }
+    wrap.appendChild(grid);
+    card.appendChild(wrap);
+    if (editing) mountWidget(card, table.id);
+    else applyWidgetFrame(card, table.id);
+    board.appendChild(card);
+  }
+
+  function renderTreasury() {
+    const board = document.getElementById("treasury-board");
+    if (!board) return;
+    if (!Array.isArray(state.treasury.investments)) state.treasury.investments = [];
+    if (!Array.isArray(state.treasury.tables)) state.treasury.tables = [];
+    ensureLayout();
+    board.replaceChildren();
+    state.treasury.layout.forEach((rowIds) => {
+      const row = document.createElement("div");
+      row.className = "treasury-row";
+      rowIds.forEach((id) => {
+        if (id === "values") renderValuesTable(row);
+        else if (id === "investments") renderInvestNotes(row);
+        else {
+          const table = state.treasury.tables.find((item) => item.id === id);
+          if (table) renderCustomTable(row, table);
+        }
+      });
+      board.appendChild(row);
+    });
+    paintTreasuryTotals();
+    paintInvestNoteTotal();
+    state.treasury.tables.forEach((table) => paintCustomTotal(table));
   }
 
   function openMonth(year, key) {
@@ -3519,6 +4276,7 @@
       viewYear: state.viewYear,
       bankFilter: state.bankFilter,
       usdRate: Number(state.usdRate) || 0,
+      treasury: JSON.parse(JSON.stringify(state.treasury)),
       banks: state.banks.map((row) => ({ ...row })),
       accounts: state.accounts.map((row) => ({ ...row })),
       assets: state.assets.map((row) => ({ ...row })),
@@ -3543,6 +4301,7 @@
       state.viewYear = Number(data.viewYear) || state.viewYear;
       state.bankFilter = data.bankFilter || "all";
       state.usdRate = Number(data.usdRate) || 0;
+      state.treasury = normalizeTreasury(data.treasury);
       state.banks = Array.isArray(data.banks) ? data.banks.map(normalizeBank) : [];
       state.accounts = Array.isArray(data.accounts) ? data.accounts.map(normalizeAccount) : [];
       state.assets = Array.isArray(data.assets) ? data.assets.map(normalizeAsset) : [];
@@ -3557,6 +4316,7 @@
       state.profile.name = (data.profile && data.profile.name) || "";
       state.viewYear = Number(year) || state.viewYear;
       state.usdRate = 0;
+      state.treasury = { salary: 0, rows: [], investments: [], tables: [] };
       state.banks = [];
       state.accounts = [];
       state.assets = [];
@@ -3762,7 +4522,7 @@
     Norte.toast("Ejemplo con patrimonio, bancos e inversiones tipadas.");
   }
 
-  document.querySelectorAll(".overview-tabs [data-tab]").forEach((button) => {
+  document.querySelectorAll(".overview-tabbar [data-tab]").forEach((button) => {
     button.addEventListener("click", () => setTab(button.dataset.tab));
   });
   document.getElementById("year-prev").addEventListener("click", () => {
@@ -3788,13 +4548,44 @@
     entry.notesByBank[active] = notesInput.value;
   });
   document.getElementById("btn-manage-banks").addEventListener("click", () => {
+    state.banks.push({ id: uid(), name: "Nuevo banco" });
     renderBanksModal();
+    renderBankChips();
     banksModal.showModal();
   });
   document.getElementById("add-bank").addEventListener("click", () => {
     state.banks.push({ id: uid(), name: "Nuevo banco" });
     renderBanksModal();
     renderBankChips();
+  });
+  document.getElementById("add-custom-table").addEventListener("click", () => {
+    const columnId = uid();
+    state.treasury.tables.push({
+      id: uid(),
+      name: "Nueva tabla",
+      kind: "custom",
+      done: false,
+      columns: [{ id: columnId, name: "Columna", numeric: false, month: false }],
+      rows: [{ id: uid(), cells: { [columnId]: "" } }],
+      total: null
+    });
+    renderTreasury();
+  });
+  document.getElementById("add-note-table").addEventListener("click", () => {
+    const columnId = uid();
+    state.treasury.tables.push({
+      id: uid(),
+      name: "Notas",
+      kind: "note",
+      done: false,
+      columns: [{ id: columnId, name: "Mes", numeric: false, month: true }],
+      rows: MONTHS.map((month) => ({
+        id: uid(),
+        cells: { [columnId]: month }
+      })),
+      total: null
+    });
+    renderTreasury();
   });
   document.getElementById("add-saving").addEventListener("click", () => {
     state.savings.push({
