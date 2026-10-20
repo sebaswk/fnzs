@@ -41,7 +41,7 @@
     { id: "otro", label: "Otro" }
   ];
   const TAB_DESC = {
-    recopilado: "Tu año de un vistazo: totales, deudas, ahorros e inversiones.",
+    recopilado: "Tu año de un vistazo: totales, deudas, tarjetas, ahorros e inversiones.",
     meses: "Elige un mes para anotar lo que entró y salió de cada banco.",
     patrimonio: "Lo que ya tenías en cada banco al empezar y otros bienes.",
     factura: "Un informe del año listo para revisar o imprimir.",
@@ -67,7 +67,10 @@
       debts: [],
       contributions: [],
       investments: [],
-      transfers: []
+      transfers: [],
+      purchases: [],
+      outflows: [],
+      cardRows: []
     };
   }
 
@@ -85,6 +88,9 @@
     if (!Array.isArray(entry.expenses)) entry.expenses = [];
     if (!Array.isArray(entry.transfers)) entry.transfers = [];
     if (!Array.isArray(entry.debts)) entry.debts = [];
+    if (!Array.isArray(entry.purchases)) entry.purchases = [];
+    if (!Array.isArray(entry.outflows)) entry.outflows = [];
+    if (!Array.isArray(entry.cardRows)) entry.cardRows = [];
     if (!entry.notesByBank || typeof entry.notesByBank !== "object") entry.notesByBank = {};
     entry.incomes.forEach((row) => {
       if (row.bankId == null) row.bankId = "";
@@ -119,6 +125,37 @@
       syncGmf(row);
       row.amount = Number(row.amount) || 0;
     });
+    entry.purchases.forEach((row) => {
+      if (!row.id) row.id = uid();
+      if (row.bankId == null) row.bankId = "";
+      if (typeof row.name !== "string") row.name = "";
+      if (typeof row.note !== "string") row.note = "";
+      row.category = categoryById(row.category).id;
+      row.amount = Number(row.amount) || 0;
+      syncGmf(row);
+    });
+    entry.outflows.forEach((row) => {
+      if (!row.id) row.id = uid();
+      if (row.bankId == null) row.bankId = "";
+      if (row.kind !== "retiro") row.kind = "transferencia";
+      if (typeof row.concept !== "string") row.concept = "";
+      row.amount = Number(row.amount) || 0;
+      syncGmf(row);
+    });
+    entry.cardRows.forEach((row) => {
+      if (!row.id) row.id = uid();
+      if (row.kind !== "pago") row.kind = "compra";
+      if (typeof row.concept !== "string") row.concept = "";
+      row.category = categoryById(row.category).id;
+      row.amount = Number(row.amount) || 0;
+      row.installments = Math.min(60, Math.max(1, Math.round(Number(row.installments) || 1)));
+      if (row.bankId == null) {
+        const card = state.cards.find((c) => c.id === row.cardId);
+        row.bankId = card ? (card.bankId || "") : "";
+      }
+      if (row.kind === "compra") row.gmf = false;
+      else syncGmf(row);
+    });
     entry.debts.forEach((row) => {
       if (!row.id) row.id = uid();
       if (row.kind !== "prestamo") row.kind = "pago";
@@ -148,6 +185,16 @@
       id: row.id || uid(),
       name: row.name || "Deuda",
       bankId: row.bankId || "",
+      initialAmount: Math.max(0, Number(row.initialAmount) || 0)
+    };
+  }
+
+  function normalizeCard(row) {
+    return {
+      id: row.id || uid(),
+      name: row.name || "Tarjeta",
+      bankId: row.bankId || "",
+      limit: Math.max(0, Number(row.limit) || 0),
       initialAmount: Math.max(0, Number(row.initialAmount) || 0)
     };
   }
@@ -310,12 +357,15 @@
     investLayout: "compact",
     debtsLayout: "compact",
     expandedDebtId: null,
+    cardsLayout: "compact",
+    expandedCardId: null,
     flowChartsOpen: false,
     treasury: NorteSheet.normalize(null),
     banks: [],
     accounts: [],
     assets: [],
     debts: [],
+    cards: [],
     savings: [],
     investments: [],
     years: {}
@@ -447,6 +497,11 @@
     (source.contributions || []).forEach((row) => add(row.bankId, row.amount, row.gmf));
     (source.investments || []).forEach((row) => add(row.bankId, row.amount, row.gmf));
     (source.transfers || []).forEach((row) => add(row.fromBankId, row.amount, row.gmf));
+    (source.purchases || []).forEach((row) => add(row.bankId, row.amount, row.gmf));
+    (source.outflows || []).forEach((row) => add(row.bankId, row.amount, row.gmf));
+    (source.cardRows || []).forEach((row) => {
+      if (row.kind === "pago") add(row.bankId, row.amount, row.gmf);
+    });
     return buckets;
   }
 
@@ -517,7 +572,10 @@
         debts: entry.debts || [],
         contributions: entry.contributions || [],
         investments: entry.investments || [],
-        transfers: entry.transfers || []
+        transfers: entry.transfers || [],
+        purchases: entry.purchases || [],
+        outflows: entry.outflows || [],
+        cardRows: entry.cardRows || []
       };
     }
     return {
@@ -529,32 +587,54 @@
       investments: filterMonthRows(entry.investments),
       transfers: (entry.transfers || []).filter((row) =>
         (row.fromBankId || "") === active || (row.toBankId || "") === active
-      )
+      ),
+      purchases: filterMonthRows(entry.purchases),
+      outflows: filterMonthRows(entry.outflows),
+      cardRows: filterMonthRows(entry.cardRows)
     };
+  }
+
+  // Rol de una transferencia entre mis bancos según el banco que se mira:
+  // "send" = lo envía, "receive" = lo recibe, "internal" = sale y entra al mismo banco.
+  function transferRole(row, bankId) {
+    const from = row.fromBankId || "";
+    const to = row.toBankId || "";
+    if (from === to) return from === bankId ? "internal" : "";
+    if (from === bankId) return "send";
+    if (to === bankId) return "receive";
+    return "";
   }
 
   function transferEffects(rows, bankScope) {
     let inbound = 0;
     let outbound = 0;
     let linkedInvest = 0;
+    let investOut = 0;
     (rows || []).forEach((row) => {
       const amount = Math.abs(Number(row.amount) || 0);
       if (!amount) return;
-      const from = row.fromBankId || "";
-      const to = row.toBankId || "";
       const linked = Boolean(row.investmentId);
       if (bankScope === null) {
-        // En "Todos" las transferencias internas se anulan; solo cuentan aportes ligados a inversión
+        // En "Todos" las transferencias entre mis bancos se anulan; solo cuenta lo que llega a una inversión
         if (linked) linkedInvest += amount;
         return;
       }
-      if (from === bankScope) outbound += amount;
-      if (to === bankScope) {
+      const role = transferRole(row, bankScope);
+      if (role === "internal") {
         if (linked) linkedInvest += amount;
-        else inbound += amount;
+        return;
+      }
+      if (role === "send") {
+        if (linked) investOut += amount;
+        else outbound += amount;
+      }
+      if (role === "receive") {
+        // El banco que recibe lo cuenta como un ingreso; si va a una inversión, la inversión lo toma enseguida
+        inbound += amount;
+        if (linked) linkedInvest += amount;
       }
     });
-    return { inbound, outbound, linkedInvest, net: inbound - outbound };
+    return { inbound, outbound, linkedInvest, investOut, net: inbound - outbound };
   }
 
   function ensureYear(year) {
@@ -599,17 +679,37 @@
     return { pay, borrow };
   }
 
+  function sumCardRows(rows, kind) {
+    return (rows || [])
+      .filter((row) => row.kind === kind)
+      .reduce((sum, row) => sum + Math.abs(Number(row.amount) || 0), 0);
+  }
+
+  // Todo lo que cuenta como gasto del mes: gastos, compras y compras con tarjeta
+  function spendRows(entry) {
+    return [
+      ...((entry && entry.expenses) || []),
+      ...((entry && entry.purchases) || []),
+      ...((entry && entry.cardRows) || []).filter((row) => row.kind === "compra")
+    ];
+  }
+
   function monthTotals(entry) {
-    const income = sumList(entry && entry.incomes);
     const debt = sumDebts(entry && entry.debts);
-    const expense = sumList(entry && entry.expenses);
+    const cardBuy = sumCardRows(entry && entry.cardRows, "compra");
+    const cardPay = sumCardRows(entry && entry.cardRows, "pago");
+    const outflow = sumList(entry && entry.outflows);
+    const expense = sumList(entry && entry.expenses) + sumList(entry && entry.purchases) + cardBuy;
     const contrib = sumContribs(entry && entry.contributions);
     const investDirect = sumList(entry && entry.investments);
     const active = activeBankId();
     const xfer = transferEffects(entry && entry.transfers, active);
+    const income = sumList(entry && entry.incomes) + xfer.inbound;
     const invest = investDirect + xfer.linkedInvest;
     const aportes = Math.max(contrib, 0);
     const retiros = Math.max(-contrib, 0);
+    // Lo que de verdad sale de tus bancos (las compras con tarjeta salen cuando pagas la tarjeta)
+    const cashOut = expense - cardBuy + debt.pay + aportes + invest + outflow + cardPay;
     return {
       income,
       expense,
@@ -620,12 +720,17 @@
       transferIn: xfer.inbound,
       transferOut: xfer.outbound,
       transferNet: xfer.net,
+      transferInvest: xfer.investOut,
+      outflow,
+      cardBuy,
+      cardPay,
+      cashOut,
       debtPay: debt.pay,
       debtNew: debt.borrow,
       egresos: expense,
       ahorros: contrib,
       inversiones: invest,
-      balance: income - expense - debt.pay + debt.borrow - aportes - invest + retiros + xfer.net
+      balance: income - cashOut + debt.borrow + retiros - xfer.outbound - xfer.investOut
     };
   }
 
@@ -634,7 +739,8 @@
     const acc = {
       income: 0, expense: 0, contrib: 0, invest: 0,
       egresos: 0, ahorros: 0, inversiones: 0, balance: 0, aportes: 0, retiros: 0,
-      transferIn: 0, transferOut: 0, transferNet: 0, debtPay: 0, debtNew: 0
+      transferIn: 0, transferOut: 0, transferNet: 0, transferInvest: 0, debtPay: 0, debtNew: 0,
+      outflow: 0, cardBuy: 0, cardPay: 0, cashOut: 0
     };
     if (!y) return acc;
     Object.values(y.months).forEach((entry) => {
@@ -651,10 +757,15 @@
       acc.transferIn += t.transferIn;
       acc.transferOut += t.transferOut;
       acc.transferNet += t.transferNet;
+      acc.transferInvest += t.transferInvest;
+      acc.outflow += t.outflow;
+      acc.cardBuy += t.cardBuy;
+      acc.cardPay += t.cardPay;
+      acc.cashOut += t.cashOut;
       acc.debtPay += t.debtPay;
       acc.debtNew += t.debtNew;
+      acc.balance += t.balance;
     });
-    acc.balance = acc.income - acc.expense - acc.debtPay + acc.debtNew - acc.aportes - acc.invest + acc.retiros + acc.transferNet;
     return acc;
   }
 
@@ -738,6 +849,50 @@
     return debtProgress(debt, untilYear).left;
   }
 
+  function cardFlow(id, untilYear) {
+    const flow = { bought: 0, paid: 0 };
+    Object.entries(state.years).forEach(([yearKey, year]) => {
+      if (untilYear != null && Number(yearKey) > untilYear) return;
+      Object.values(year.months || {}).forEach((entry) => {
+        (entry.cardRows || []).forEach((row) => {
+          if (row.cardId !== id) return;
+          const amount = Math.abs(Number(row.amount) || 0);
+          if (row.kind === "pago") flow.paid += amount;
+          else flow.bought += amount;
+        });
+      });
+    });
+    return flow;
+  }
+
+  function cardProgress(card, untilYear) {
+    const flow = cardFlow(card.id, untilYear);
+    const owed = (Number(card.initialAmount) || 0) + flow.bought;
+    const left = Math.max(0, owed - flow.paid);
+    return { ...flow, owed, left, share: owed > 0 ? Math.min(100, (flow.paid / owed) * 100) : 0 };
+  }
+
+  function cardBalance(card, untilYear) {
+    return cardProgress(card, untilYear).left;
+  }
+
+  // Cuotas que toca pagar en un mes: cada compra se divide en sus cuotas y la primera se paga el mes siguiente
+  function cardDue(cardId, year, month) {
+    const target = Number(year) * 12 + Number(month) - 1;
+    let due = 0;
+    Object.entries(state.years).forEach(([yearKey, y]) => {
+      Object.entries(y.months || {}).forEach(([monthKeyValue, entry]) => {
+        const bought = Number(yearKey) * 12 + Number(monthKeyValue) - 1;
+        (entry.cardRows || []).forEach((row) => {
+          if (row.cardId !== cardId || row.kind !== "compra") return;
+          const n = Math.max(1, Math.round(Number(row.installments) || 1));
+          if (target > bought && target <= bought + n) due += (Math.abs(Number(row.amount) || 0)) / n;
+        });
+      });
+    });
+    return due;
+  }
+
   function bolsaStockUntil(pot, untilYear) {
     return (pot.holdings || []).reduce((acc, h) => {
       const base = Number(h.invested) || 0;
@@ -812,7 +967,10 @@
     const assets = includeLooseAssets(allBanks) ? assetTotal() : 0;
     const debts = state.debts
       .filter((d) => bankOk(d.bankId))
-      .reduce((sum, d) => sum + debtBalance(d, year), 0);
+      .reduce((sum, d) => sum + debtBalance(d, year), 0)
+      + state.cards
+        .filter((c) => bankOk(c.bankId))
+        .reduce((sum, c) => sum + cardBalance(c, year), 0);
     return {
       accounts,
       savings,
@@ -835,7 +993,7 @@
     return filteredAccounts().filter((acc) => Number(acc.openingYear) <= year);
   }
 
-  function expenseSlices(expenses, contrib, invest, debtPay) {
+  function expenseSlices(expenses, contrib, invest, debtPay, outflow, transferInvest) {
     const map = {};
     (expenses || []).forEach((row) => {
       const cat = categoryById(row.category).id;
@@ -847,6 +1005,12 @@
     }));
     if (debtPay > 0) {
       slices.push({ id: "pagos-deuda", label: "Pagos a deudas", color: DEBT_COLOR, value: debtPay });
+    }
+    if (outflow > 0) {
+      slices.push({ id: "terceros", label: "Transferencias y retiros", color: "#7fb3c8", value: outflow });
+    }
+    if (transferInvest > 0) {
+      slices.push({ id: "transferencia-inversion", label: "Transferencias a inversión", color: "#c59bf0", value: transferInvest });
     }
     if (contrib > 0) {
       slices.push({ id: "aportes-ahorro", label: "Aportes a ahorros", color: "#6c9eff", value: contrib });
@@ -863,16 +1027,21 @@
     let contrib = 0;
     let invest = 0;
     let debtPay = 0;
+    let outflow = 0;
+    let transferInvest = 0;
     if (y) {
       Object.values(y.months).forEach((entry) => {
         const sliced = monthViewEntry(normalizeMonth(entry));
-        (sliced.expenses || []).forEach((row) => expenses.push(row));
+        spendRows(sliced).forEach((row) => expenses.push(row));
         contrib += Math.max(sumContribs(sliced.contributions), 0);
-        invest += monthTotals(sliced).invest;
+        const t = monthTotals(sliced);
+        invest += t.invest;
         debtPay += sumDebts(sliced.debts).pay;
+        outflow += t.outflow;
+        transferInvest += t.transferInvest;
       });
     }
-    return expenseSlices(expenses, contrib, invest, debtPay);
+    return expenseSlices(expenses, contrib, invest, debtPay, outflow, transferInvest);
   }
 
   function metric(label, value, sub, extraClass, hero) {
@@ -942,13 +1111,87 @@
     if (!entry) return false;
     const t = monthTotals(entry);
     return t.income > 0 || t.expense > 0 || t.contrib !== 0 || t.invest > 0
-      || t.transferIn > 0 || t.transferOut > 0 || t.debtPay > 0 || t.debtNew > 0;
+      || t.transferIn > 0 || t.transferOut > 0 || t.transferInvest > 0 || t.debtPay > 0 || t.debtNew > 0
+      || t.outflow > 0 || t.cardBuy > 0 || t.cardPay > 0;
   }
 
   function setView(mode) {
     overview.hidden = mode !== "overview";
     monthView.hidden = mode !== "month";
     investView.hidden = mode !== "invest";
+  }
+
+  const SIDE_TABS = {
+    resumen: "recopilado",
+    movimientos: "meses",
+    patrimonio: "patrimonio",
+    factura: "factura",
+    tesoreria: "tesoreria"
+  };
+
+  function selectYear(year) {
+    state.viewYear = year;
+    ensureYear(year);
+    if (state.openMonth) closeMonth();
+    else if (state.openInvestId) closeInvest();
+    else render();
+  }
+
+  function selectBank(id) {
+    state.bankFilter = id;
+    render();
+  }
+
+  // Año y banco también se pueden cambiar desde el menú lateral
+  function syncSideContext() {
+    if (!Norte.setSideContext) return;
+    const years = allYearsList();
+    const nextYear = years[years.length - 1] + 1;
+    const filters = [
+      { id: "all", label: "Todos" },
+      ...state.banks.map((bank) => ({ id: bank.id, label: bank.name })),
+      { id: "none", label: "Sin banco" }
+    ];
+    const bankLabel = (filters.find((item) => item.id === state.bankFilter) || filters[0]).label;
+    Norte.setSideContext({
+      label: "Estás viendo",
+      groups: [
+        {
+          key: "ctx-year",
+          label: "Año",
+          icon: "calendar",
+          value: String(state.viewYear),
+          options: years.map((year) => ({ id: year, label: String(year), active: year === state.viewYear })),
+          onSelect: (year) => selectYear(Number(year)),
+          add: { label: `Añadir ${nextYear}`, run: () => selectYear(nextYear) }
+        },
+        {
+          key: "ctx-bank",
+          label: "Banco",
+          icon: "bank",
+          value: bankLabel,
+          compact: true,
+          options: filters.map((item) => ({ id: item.id, label: item.label, active: item.id === state.bankFilter })),
+          onSelect: selectBank,
+          add: { label: "Agregar banco", run: () => document.getElementById("btn-manage-banks").click() }
+        }
+      ]
+    });
+  }
+
+  function syncSide() {
+    if (!Norte.setSideActive) return;
+    const tab = state.openMonth ? "meses" : state.openInvestId ? "recopilado" : state.tab;
+    Norte.setSideActive(`fp-${tab}`);
+    syncSideContext();
+  }
+
+  function goTab(tab) {
+    state.openMonth = null;
+    state.openInvestId = null;
+    state.tab = tab;
+    render();
+    Norte.scrollTop();
   }
 
   function setTab(tab) {
@@ -964,11 +1207,13 @@
     });
     const desc = document.getElementById("tab-desc");
     if (desc) desc.textContent = TAB_DESC[tab] || "";
+    syncSide();
     if (tab === "factura") renderInvoice();
     if (tab === "meses") renderMonthGrid();
     if (tab === "patrimonio") renderPatrimonio();
     if (tab === "recopilado") {
       renderDebts();
+      renderCards();
       renderSavings();
       renderInvestments();
     }
@@ -1026,6 +1271,11 @@
     state.tab = "recopilado";
     render();
     Norte.scrollTop();
+  }
+
+  function readTabHash() {
+    const name = location.hash.replace(/^#/, "");
+    return SIDE_TABS[name] || null;
   }
 
   function readHash() {
@@ -1138,6 +1388,7 @@
         state.savings.forEach((s) => { if (s.bankId === id) s.bankId = ""; });
         state.investments.forEach((s) => { if (s.bankId === id) s.bankId = ""; });
         state.debts.forEach((d) => { if (d.bankId === id) d.bankId = ""; });
+        state.cards.forEach((c) => { if (c.bankId === id) c.bankId = ""; });
         if (state.bankFilter === id) state.bankFilter = "all";
         renderBanksModal();
         render();
@@ -1150,7 +1401,8 @@
   function yearHasFlow(totals) {
     return totals.income > 0 || totals.expense > 0 || totals.aportes > 0 || totals.retiros > 0
       || totals.invest > 0 || totals.transferIn > 0 || totals.transferOut > 0
-      || totals.debtPay > 0 || totals.debtNew > 0;
+      || totals.debtPay > 0 || totals.debtNew > 0 || totals.transferInvest > 0
+      || totals.outflow > 0 || totals.cardBuy > 0 || totals.cardPay > 0;
   }
 
   function syncFlowCharts(hasFlow) {
@@ -1167,9 +1419,9 @@
 
   function isFreshStart() {
     if (state.banks.length || state.accounts.length || state.assets.length || state.savings.length
-      || state.investments.length || state.debts.length) return false;
+      || state.investments.length || state.debts.length || state.cards.length) return false;
     return !Object.values(state.years).some((year) => Object.values(year.months || {}).some((entry) =>
-      ["incomes", "expenses", "debts", "contributions", "investments", "transfers"].some((field) => (entry[field] || []).length)
+      ["incomes", "expenses", "debts", "contributions", "investments", "transfers", "purchases", "outflows", "cardRows"].some((field) => (entry[field] || []).length)
     ));
   }
 
@@ -1227,9 +1479,10 @@
           { name: "Ingresos", color: "#3fd49a", stack: "entra", values: months.map((t) => t.income) },
           { name: "Gastos", color: "#f07d6e", stack: "sale", values: months.map((t) => t.expense) },
           { name: "A deudas", color: DEBT_COLOR, stack: "sale", values: months.map((t) => t.debtPay) },
+          { name: "Transferencias y retiros", color: "#7fb3c8", stack: "sale", values: months.map((t) => t.outflow) },
           { name: "A ahorros", color: "#6c9eff", stack: "sale", values: months.map((t) => t.aportes) },
           { name: "A inversiones", color: "#a68cf7", stack: "sale", values: months.map((t) => t.invest) }
-        ].filter((serie) => serie.name !== "A deudas" || serie.values.some((value) => value > 0)),
+        ].filter((serie) => !["A deudas", "Transferencias y retiros"].includes(serie.name) || serie.values.some((value) => value > 0)),
         lines: [{ name: "Te quedó", color: "#f3b65b", values: months.map((t) => t.balance) }],
         format: money,
         formatAxis: (value) => Norte.formatCompact(value, CURRENCY),
@@ -1241,13 +1494,16 @@
             { name: "Gastos", color: "#f07d6e", value: money(t.expense) }
           ];
           if (t.debtPay > 0) rows.push({ name: "A deudas", color: DEBT_COLOR, value: money(t.debtPay) });
+          if (t.outflow > 0) rows.push({ name: "Transferencias y retiros", color: "#7fb3c8", value: money(t.outflow) });
+          if (t.cardPay > 0) rows.push({ name: "Pagos de tarjeta", color: "#8a94a3", value: money(t.cardPay) });
           rows.push(
             { name: "A ahorros", color: "#6c9eff", value: money(t.aportes) },
             { name: "A inversiones", color: "#a68cf7", value: money(t.invest) }
           );
           if (t.debtNew > 0) rows.push({ name: "Te prestaron", color: "#8a94a3", value: money(t.debtNew) });
           if (t.retiros > 0) rows.push({ name: "Sacaste de ahorros", color: "#8a94a3", value: money(t.retiros) });
-          if (t.transferNet) rows.push({ name: "Transferencias", color: "#8a94a3", value: money(t.transferNet) });
+          if (t.transferOut) rows.push({ name: "Enviado a mis otros bancos", color: "#8a94a3", value: money(t.transferOut) });
+          if (t.transferInvest) rows.push({ name: "Transferencias a inversión", color: "#c59bf0", value: money(t.transferInvest) });
           rows.push({ name: "Te quedó", color: "#f3b65b", value: money(t.balance), total: true });
           return rows;
         },
@@ -1261,6 +1517,7 @@
     }
 
     renderDebts();
+    renderCards();
     renderSavings();
     renderInvestments();
     renderMonthGrid();
@@ -1274,9 +1531,11 @@
   }
 
   function syncLayoutToggles() {
+    const cardsBtn = document.getElementById("toggle-cards-layout");
     const debtsBtn = document.getElementById("toggle-debts-layout");
     const savingsBtn = document.getElementById("toggle-savings-layout");
     const investBtn = document.getElementById("toggle-invest-layout");
+    if (cardsBtn) cardsBtn.textContent = layoutToggleLabel(state.cardsLayout);
     if (debtsBtn) debtsBtn.textContent = layoutToggleLabel(state.debtsLayout);
     if (savingsBtn) savingsBtn.textContent = layoutToggleLabel(state.savingsLayout);
     if (investBtn) investBtn.textContent = layoutToggleLabel(state.investLayout);
@@ -1359,7 +1618,7 @@
         className: "empty-note",
         textContent: state.debts.length
           ? "No hay deudas en este banco."
-          : "Agrega una tarjeta o un crédito con lo que debes hoy. Cada pago que anotes en el mes baja el saldo."
+          : "Agrega un crédito o un préstamo con lo que debes hoy. Cada pago que anotes en el mes baja el saldo."
       }));
       return;
     }
@@ -1456,6 +1715,156 @@
       box.appendChild(card);
     });
     paintDebtsTotal(list);
+  }
+
+  function paintCardsTotal(list) {
+    const box = document.getElementById("cards-total");
+    if (!box) return;
+    if (!list.length) {
+      box.hidden = true;
+      box.replaceChildren();
+      return;
+    }
+    const total = list.reduce((sum, card) => sum + cardBalance(card), 0);
+    box.hidden = false;
+    box.className = "list-total section-total";
+    box.replaceChildren(
+      Object.assign(document.createElement("span"), { className: "muted", textContent: "Total que debes en tarjetas" }),
+      Object.assign(document.createElement("strong"), { textContent: money(total) })
+    );
+  }
+
+  function removeCard(card) {
+    const index = state.cards.findIndex((item) => item.id === card.id);
+    if (index >= 0) state.cards.splice(index, 1);
+    Object.values(state.years).forEach((year) => {
+      Object.values(year.months || {}).forEach((entry) => {
+        entry.cardRows = (entry.cardRows || []).filter((row) => row.cardId !== card.id);
+      });
+    });
+    if (state.expandedCardId === card.id) state.expandedCardId = null;
+    render();
+  }
+
+  function cardStatus(card, progress) {
+    const due = cardDue(card.id, now.getFullYear(), now.getMonth() + 1);
+    const parts = [];
+    if (card.limit > 0) parts.push(`Cupo libre ${money(Math.max(0, card.limit - progress.left))}`);
+    if (due > 0) parts.push(`Este mes toca pagar ${money(due)}`);
+    else if (progress.owed > 0 && progress.left === 0) parts.push("Al día");
+    else if (progress.paid > 0) parts.push(`Pagaste ${money(progress.paid)}`);
+    else parts.push("Aún no anotas movimientos");
+    return parts.join(" · ");
+  }
+
+  function renderCards() {
+    const list = state.cards.filter((c) => matchesBank(c.bankId));
+    const box = document.getElementById("cards-list");
+    if (!box) return;
+    box.replaceChildren();
+    syncLayoutToggles();
+    if (!list.length) {
+      paintCardsTotal([]);
+      box.appendChild(Object.assign(document.createElement("p"), {
+        className: "empty-note",
+        textContent: state.cards.length
+          ? "No hay tarjetas en este banco."
+          : "Agrega tus tarjetas de crédito. Anota las compras (con sus cuotas) y los pagos de cada mes, y verás cuánto debes."
+      }));
+      return;
+    }
+    list.forEach((card) => {
+      if (state.cardsLayout === "compact" && state.expandedCardId !== card.id) {
+        const progress = cardProgress(card);
+        const row = document.createElement("article");
+        row.className = "compact-row";
+        const main = document.createElement("div");
+        main.className = "compact-main";
+        main.append(
+          Object.assign(document.createElement("strong"), { textContent: card.name || "Sin nombre" }),
+          Object.assign(document.createElement("span"), {
+            className: "faint",
+            textContent: `${bankName(card.bankId)} · ${cardStatus(card, progress)}`
+          })
+        );
+        const amount = document.createElement("strong");
+        amount.className = "compact-money";
+        amount.textContent = money(progress.left);
+        const edit = document.createElement("button");
+        edit.type = "button";
+        edit.className = "btn btn-sm";
+        edit.textContent = "Editar";
+        edit.addEventListener("click", () => {
+          state.expandedCardId = card.id;
+          renderCards();
+        });
+        row.append(
+          main,
+          amount,
+          reorderControls(state.cards, list, card, renderCards),
+          edit,
+          removeButton(() => removeCard(card))
+        );
+        box.appendChild(row);
+        return;
+      }
+      const cardEl = document.createElement("article");
+      cardEl.className = "saving-card saving-card-rich debt-card";
+      const left = document.createElement("strong");
+      const meta = document.createElement("div");
+      meta.className = "saving-meta";
+      const bar = document.createElement("div");
+      bar.className = "progress";
+      const fill = document.createElement("span");
+      bar.appendChild(fill);
+      const paint = () => {
+        const progress = cardProgress(card);
+        left.textContent = money(progress.left);
+        meta.textContent = cardStatus(card, progress);
+        fill.style.width = `${progress.share}%`;
+        paintCardsTotal(list);
+      };
+      const orderLine = reorderControls(state.cards, list, card, renderCards);
+      orderLine.className = "bank-order row-order";
+      if (state.expandedCardId === card.id) {
+        const close = document.createElement("button");
+        close.type = "button";
+        close.className = "btn btn-sm btn-ghost";
+        close.textContent = "Cerrar";
+        close.addEventListener("click", () => {
+          state.expandedCardId = null;
+          renderCards();
+        });
+        orderLine.appendChild(close);
+      }
+      orderLine.appendChild(removeButton(() => removeCard(card)));
+      const done = document.createElement("div");
+      done.className = "field";
+      done.append(Object.assign(document.createElement("label"), { textContent: "Debes hoy" }), left, meta);
+      cardEl.append(
+        orderLine,
+        fieldWrap("Nombre", makeInput(card.name, (input) => {
+          card.name = input.value;
+        }, { type: "text", placeholder: "Visa Gold" })),
+        fieldWrap("Banco", makeSelect(card.bankId || "", bankOptions(true), (value) => {
+          card.bankId = value;
+          render();
+        })),
+        Object.assign(fieldWrap("Cupo", moneyField(card.limit, (val) => {
+          card.limit = Math.max(0, val);
+          paint();
+        })), { className: "field field-money" }),
+        Object.assign(fieldWrap("Debías al empezar", moneyField(card.initialAmount, (val) => {
+          card.initialAmount = Math.max(0, val);
+          paint();
+        })), { className: "field field-money" }),
+        done,
+        bar
+      );
+      paint();
+      box.appendChild(cardEl);
+    });
+    paintCardsTotal(list);
   }
 
   function paintSavingsTotal(list) {
@@ -2457,10 +2866,19 @@
     addBtn.type = "button";
     addBtn.className = "btn btn-sm btn-outline";
     addBtn.textContent = "Nueva posición";
-    addBtn.addEventListener("click", () => {
-      pot.holdings.push(normalizeHolding({ kind: "etf", name: "" }));
+    const addHolding = () => {
+      const fresh = normalizeHolding({ kind: "etf", name: "" });
+      pot.holdings.push(fresh);
       renderInvestDetail();
-    });
+      const cards = document.querySelectorAll(".holding-card");
+      const last = cards[cards.length - 1];
+      if (last) {
+        last.scrollIntoView({ block: "center" });
+        const input = last.querySelector("input[type=text]");
+        if (input) input.focus({ preventScroll: true });
+      }
+    };
+    addBtn.addEventListener("click", addHolding);
     head.append(titleWrap, addBtn);
     section.appendChild(head);
 
@@ -2635,6 +3053,13 @@
       card.appendChild(moves);
       section.appendChild(card);
     });
+    const addBottom = document.createElement("button");
+    addBottom.type = "button";
+    addBottom.className = "btn btn-outline holding-add-bottom";
+    addBottom.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+    addBottom.append(document.createTextNode("Nueva posición"));
+    addBottom.addEventListener("click", addHolding);
+    section.appendChild(addBottom);
     container.appendChild(section);
     renderDividends(pot, container);
   }
@@ -3056,7 +3481,16 @@
     const debtPart = document.createElement("div");
     debtPart.className = "linked-block";
     debtPart.appendChild(Object.assign(document.createElement("p"), { className: "faint", textContent: "Deudas" }));
-    const debtList = state.debts.filter((d) => matchesBank(d.bankId));
+    const debtList = [
+      ...state.debts.filter((d) => matchesBank(d.bankId)).map((d) => ({
+        name: d.name || "Deuda",
+        value: debtBalance(d, state.viewYear)
+      })),
+      ...state.cards.filter((c) => matchesBank(c.bankId)).map((c) => ({
+        name: `${c.name || "Tarjeta"} (tarjeta)`,
+        value: cardBalance(c, state.viewYear)
+      }))
+    ];
     if (!debtList.length) {
       debtPart.appendChild(Object.assign(document.createElement("p"), {
         className: "empty-note",
@@ -3067,10 +3501,10 @@
         const row = document.createElement("div");
         row.className = "linked-row";
         row.append(
-          Object.assign(document.createElement("span"), { textContent: debt.name || "Deuda" }),
+          Object.assign(document.createElement("span"), { textContent: debt.name }),
           Object.assign(document.createElement("strong"), {
             className: "negative",
-            textContent: money(-debtBalance(debt, state.viewYear))
+            textContent: money(-debt.value)
           })
         );
         debtPart.appendChild(row);
@@ -3243,7 +3677,7 @@
       const body = document.createElement("div");
       body.className = "month-card-body";
       if (filled) {
-        const out = t.expense + t.debtPay + t.aportes + t.invest;
+        const out = t.cashOut + t.transferOut + t.transferInvest;
         const lines = [
           ["Ingresos", money(t.income), ""],
           ["Salidas", money(out), ""],
@@ -3336,6 +3770,56 @@
     });
   }
 
+  function receivedInvoiceRows(sliced) {
+    return receivedTransfers(sliced).map((row) => ({
+      name: `Transferencia de ${bankName(row.fromBankId)}${row.concept ? ` · ${row.concept}` : ""}`,
+      amount: row.amount
+    }));
+  }
+
+  function purchaseInvoiceRows(sliced, withBank) {
+    return (sliced.purchases || []).map((row) => {
+      const name = `Compra · ${row.name || "Compra"} · ${categoryById(row.category).label}`;
+      return {
+        name: withBank ? withBankLabel(name, row.bankId) : `${name}${row.gmf ? " · con 4x1000" : ""}`,
+        amount: row.amount
+      };
+    });
+  }
+
+  function transferInvoiceGroups(block, sliced) {
+    const active = activeBankId();
+    const mine = (sliced.transfers || []).filter((row) => active === null || transferRole(row, active) !== "receive");
+    const label = (row) => `${bankName(row.fromBankId)} → ${bankName(row.toBankId)}${row.concept ? ` · ${row.concept}` : ""}${row.gmf ? " · con 4x1000" : ""}`;
+    addInvoiceRows(block, "Transferencias entre mis bancos", mine.filter((row) => !row.investmentId).map((row) => ({
+      name: label(row),
+      amount: row.amount
+    })));
+    addInvoiceRows(block, "Transferencias a inversión", mine.filter((row) => row.investmentId).map((row) => {
+      const pot = state.investments.find((item) => item.id === row.investmentId);
+      return { name: `${label(row)} · ${(pot && pot.name) || "Inversión"}`, amount: row.amount };
+    }));
+  }
+
+  function extraInvoiceGroups(block, sliced) {
+    addInvoiceRows(block, "Tarjetas de crédito", (sliced.cardRows || []).map((row) => {
+      const card = state.cards.find((item) => item.id === row.cardId);
+      const n = Math.max(1, Math.round(Number(row.installments) || 1));
+      const verb = row.kind === "pago" ? "Pago" : "Compra";
+      const extra = row.kind === "compra"
+        ? ` · ${categoryById(row.category).label}${n > 1 ? ` · ${n} cuotas` : ""}`
+        : "";
+      return {
+        name: `${verb} ${(card && card.name) || "tarjeta"}${row.concept ? ` · ${row.concept}` : ""}${extra}${row.gmf ? " · con 4x1000" : ""}`,
+        amount: row.amount
+      };
+    }));
+    addInvoiceRows(block, "Transferencias y retiros", (sliced.outflows || []).map((row) => ({
+      name: `${row.kind === "retiro" ? "Retiro en cajero" : "Transferencia"}${row.concept ? ` · ${row.concept}` : ""}${row.gmf ? " · con 4x1000" : ""}`,
+      amount: row.amount
+    })));
+  }
+
   function renderInvoice() {
     const box = document.getElementById("invoice");
     box.replaceChildren();
@@ -3383,7 +3867,8 @@
         ...state.accounts.map((a) => a.bankId || ""),
         ...state.savings.map((s) => s.bankId || ""),
         ...state.investments.map((s) => s.bankId || ""),
-        ...state.debts.map((d) => d.bankId || "")
+        ...state.debts.map((d) => d.bankId || ""),
+        ...state.cards.map((c) => c.bankId || "")
       ])]
       : [state.bankFilter === "none" ? "" : state.bankFilter];
     bankIds.forEach((bankId) => {
@@ -3399,7 +3884,10 @@
         .reduce((s, pot) => s + investmentWealthCop(pot), 0);
       const debtSum = state.debts
         .filter((d) => (d.bankId || "") === bankId)
-        .reduce((s, debt) => s + debtBalance(debt, state.viewYear), 0);
+        .reduce((s, debt) => s + debtBalance(debt, state.viewYear), 0)
+        + state.cards
+          .filter((c) => (c.bankId || "") === bankId)
+          .reduce((s, card) => s + cardBalance(card, state.viewYear), 0);
       const total = accountsSum + savingsSum + investSum - debtSum;
       if (!total && !debtSum) return;
       addInvoiceRows(byBankSection, bankName(bankId), [
@@ -3454,14 +3942,21 @@
       const block = document.createElement("section");
       block.className = "invoice-month";
       block.appendChild(Object.assign(document.createElement("h3"), { textContent: name }));
-      addInvoiceRows(block, "Ingresos", (sliced.incomes || []).map((row) => ({
-        name: withBankLabel(row.name || "Ingreso", row.bankId),
-        amount: row.amount
-      })));
-      addInvoiceRows(block, "Gastos", (sliced.expenses || []).map((row) => ({
-        name: withBankLabel(`${row.name || "Gasto"} · ${categoryById(row.category).label}`, row.bankId),
-        amount: row.amount
-      })));
+      addInvoiceRows(block, "Ingresos", [
+        ...(sliced.incomes || []).map((row) => ({
+          name: withBankLabel(row.name || "Ingreso", row.bankId),
+          amount: row.amount
+        })),
+        ...receivedInvoiceRows(sliced)
+      ]);
+      addInvoiceRows(block, "Gastos", [
+        ...(sliced.expenses || []).map((row) => ({
+          name: withBankLabel(`${row.name || "Gasto"} · ${categoryById(row.category).label}`, row.bankId),
+          amount: row.amount
+        })),
+        ...purchaseInvoiceRows(sliced, true)
+      ]);
+      extraInvoiceGroups(block, sliced);
       addInvoiceRows(block, "Deudas", (sliced.debts || []).map((row) => debtInvoiceRow(row, true)));
       addInvoiceRows(block, "Ahorros", (sliced.contributions || []).map((row) => {
         const pot = state.savings.find((s) => s.id === row.savingId);
@@ -3472,10 +3967,7 @@
           amount: contribSigned(row)
         };
       }));
-      addInvoiceRows(block, "Transferencias", (sliced.transfers || []).map((row) => ({
-        name: `${bankName(row.fromBankId)} → ${bankName(row.toBankId)}${row.concept ? ` · ${row.concept}` : ""}${row.investmentId ? " · a inversión" : ""}`,
-        amount: row.amount
-      })));
+      transferInvoiceGroups(block, sliced);
       addInvoiceRows(block, "Inversiones", (sliced.investments || []).map((row) => {
         const pot = state.investments.find((s) => s.id === row.investmentId);
         return {
@@ -3504,7 +3996,10 @@
     const savingsStock = savingsAll.reduce((sum, s) => sum + potTotal("saving", s.id), 0);
     const investStock = investAll.reduce((sum, s) => sum + investmentWealthCop(s), 0);
     const debtsAll = state.debts.filter((d) => matchesBank(d.bankId));
-    const debtStock = debtsAll.reduce((sum, d) => sum + debtBalance(d, state.viewYear), 0);
+    const cardsAll = state.cards.filter((c) => matchesBank(c.bankId));
+    const debtStock = debtsAll.reduce((sum, d) => sum + debtBalance(d, state.viewYear), 0)
+      + cardsAll.reduce((sum, c) => sum + cardBalance(c, state.viewYear), 0);
+    const hasDebts = debtsAll.length > 0 || cardsAll.length > 0;
     const foot = document.createElement("section");
     foot.className = "invoice-foot";
     [
@@ -3513,10 +4008,12 @@
       ["Ahorraste en el año", totals.ahorros],
       ["Invertiste en el año", totals.inversiones],
       ...(debtsAll.length ? [["Pagaste a deudas en el año", totals.debtPay]] : []),
+      ...(cardsAll.length ? [["Pagaste a tarjetas en el año", totals.cardPay]] : []),
+      ...(totals.outflow > 0 ? [["Transferencias y retiros en el año", totals.outflow]] : []),
       ["Te quedó libre en el año", totals.balance],
       ["Total en ahorros", savingsStock],
       ["Total en inversiones", investStock],
-      ...(debtsAll.length ? [["Total que debes", debtStock]] : []),
+      ...(hasDebts ? [["Total que debes", debtStock]] : []),
       ["Patrimonio total", patrimonio.total]
     ].forEach(([label, value]) => {
       const row = document.createElement("div");
@@ -3542,7 +4039,8 @@
       }));
       return;
     }
-    if (!rows.length) {
+    const received = receivedTransfers(entry);
+    if (!rows.length && !received.length) {
       box.appendChild(Object.assign(document.createElement("p"), {
         className: "empty-note",
         textContent: "Aún no hay ingresos este mes."
@@ -3567,6 +4065,14 @@
       );
       box.appendChild(wrap);
     });
+    received.forEach((row) => {
+      box.appendChild(linkedRow(
+        `Transferencia de ${bankName(row.fromBankId)}`,
+        `Desde Transferencias entre mis bancos${row.concept ? ` · ${row.concept}` : ""}`,
+        row.amount,
+        "Recibida"
+      ));
+    });
   }
 
   function renderExpenses() {
@@ -3581,7 +4087,8 @@
       }));
       return;
     }
-    if (!rows.length) {
+    const linked = linkedSpendRows(entry);
+    if (!rows.length && !linked.length) {
       box.appendChild(Object.assign(document.createElement("p"), {
         className: "empty-note",
         textContent: "Aún no hay gastos este mes."
@@ -3615,6 +4122,51 @@
       );
       box.appendChild(wrap);
     });
+    linked.forEach((node) => box.appendChild(node));
+  }
+
+  function linkedRow(title, detail, amount, tag) {
+    const row = document.createElement("div");
+    row.className = "auto-row";
+    const main = document.createElement("div");
+    main.className = "auto-main";
+    main.appendChild(Object.assign(document.createElement("strong"), { textContent: title }));
+    if (detail) main.appendChild(Object.assign(document.createElement("small"), { textContent: detail }));
+    row.appendChild(main);
+    if (tag) row.appendChild(Object.assign(document.createElement("span"), { className: "auto-chip", textContent: tag }));
+    row.appendChild(Object.assign(document.createElement("strong"), { className: "auto-amount", textContent: money(amount) }));
+    return row;
+  }
+
+  function receivedTransfers(entry) {
+    const active = activeBankId();
+    if (active === null) return [];
+    return (entry.transfers || []).filter((row) =>
+      transferRole(row, active) === "receive" && Math.abs(Number(row.amount) || 0) > 0
+    );
+  }
+
+  // Compras y compras con tarjeta: se anotan en su sección y aquí solo se acumulan por tipo de gasto
+  function linkedSpendRows(entry) {
+    const out = [];
+    const plural = (n) => `${n} ${n === 1 ? "compra" : "compras"}`;
+    const group = (rows, source) => {
+      const totals = new Map();
+      rows.forEach((row) => {
+        const category = categoryById(row.category);
+        const item = totals.get(category.id) || { label: category.label, amount: 0, count: 0 };
+        item.amount += Number(row.amount) || 0;
+        item.count += 1;
+        totals.set(category.id, item);
+      });
+      CATEGORIES.forEach((category) => {
+        const item = totals.get(category.id);
+        if (item) out.push(linkedRow(item.label, `Desde ${source} · ${plural(item.count)}`, item.amount));
+      });
+    };
+    group(filterMonthRows(entry.purchases), "Compras");
+    group(filterMonthRows(entry.cardRows).filter((row) => row.kind === "compra"), "Tarjetas");
+    return out;
   }
 
   function emptyCreate(box, text, buttonLabel, onClick) {
@@ -3847,11 +4399,12 @@
     if (!rows.length) {
       box.appendChild(Object.assign(document.createElement("p"), {
         className: "empty-note",
-        textContent: "Aún no hay transferencias este mes."
+        textContent: "Aún no hay transferencias entre tus bancos este mes."
       }));
     }
     rows.forEach((row) => {
       const index = entry.transfers.indexOf(row);
+      const role = transferRole(row, active);
       const wrap = document.createElement("div");
       wrap.className = "transfer-card";
       const grid = document.createElement("div");
@@ -3884,11 +4437,16 @@
         fieldWrap("Concepto", makeInput(row.concept || "", (input) => {
           row.concept = input.value;
         }, { type: "text", placeholder: "Para qué se mueve" })),
-        fieldWrap("Va a una inversión", makeSelect(row.investmentId || "", destInvestOpts, (value) => {
+        fieldWrap("Transferencia a inversión", makeSelect(row.investmentId || "", destInvestOpts, (value) => {
           row.investmentId = value;
           renderMonthTotals();
         })),
-        Object.assign(fieldWrap("4x1000", gmfToggle(row)), { className: "field gmf-field" })
+        role === "receive"
+          ? Object.assign(fieldWrap("4x1000", Object.assign(document.createElement("p"), {
+            className: "faint gmf-none",
+            textContent: "No aplica aquí: lo paga el banco que envía."
+          })), { className: "field gmf-field" })
+          : Object.assign(fieldWrap("4x1000", gmfToggle(row)), { className: "field gmf-field" })
       );
       const body = document.createElement("div");
       body.className = "transfer-body";
@@ -3906,6 +4464,251 @@
     }
   }
 
+  const categoryOptions = () => CATEGORIES
+    .filter((category) => category.id !== "deudas")
+    .map((category) => ({ value: category.id, label: category.label }));
+
+  function renderPurchases() {
+    const box = document.getElementById("purchase-rows");
+    const hint = document.getElementById("purchase-hint");
+    const totalEl = document.getElementById("purchase-total");
+    if (!box) return;
+    const entry = currentMonth();
+    box.replaceChildren();
+    if (monthRequiresBank()) {
+      if (hint) hint.textContent = "Elige un banco para anotar compras.";
+      if (totalEl) totalEl.textContent = money(0);
+      return;
+    }
+    if (hint) hint.textContent = "";
+    const rows = filterMonthRows(entry.purchases);
+    if (!rows.length) {
+      box.appendChild(Object.assign(document.createElement("p"), {
+        className: "empty-note",
+        textContent: "Aún no hay compras este mes. Cada una aparece en Gastos con el tipo que elijas."
+      }));
+    }
+    rows.forEach((row) => {
+      const index = entry.purchases.indexOf(row);
+      const wrap = document.createElement("div");
+      wrap.className = "row contrib-rich purchase";
+      wrap.append(
+        makeInput(row.name, (input) => { row.name = input.value; }, { type: "text", placeholder: "Qué compraste (ej. café)" }),
+        makeSelect(categoryById(row.category).id, categoryOptions(), (value) => {
+          row.category = value;
+          renderExpenses();
+          renderMonthTotals();
+        }),
+        moneyField(row.amount, (val) => {
+          row.amount = val;
+          renderExpenses();
+          renderMonthTotals();
+        }),
+        makeInput(row.note || "", (input) => {
+          row.note = input.value;
+        }, { type: "text", placeholder: "Detalle o lugar (opcional)" }),
+        rowEnd(row, removeButton(() => {
+          entry.purchases.splice(index, 1);
+          renderPurchases();
+          renderExpenses();
+          renderMonthTotals();
+        }))
+      );
+      box.appendChild(wrap);
+    });
+    if (totalEl) totalEl.textContent = money(sumList(filterMonthRows(entry.purchases)));
+  }
+
+  function renderOutflows() {
+    const box = document.getElementById("outflow-rows");
+    const totalEl = document.getElementById("outflow-total");
+    if (!box) return;
+    const entry = currentMonth();
+    box.replaceChildren();
+    if (monthRequiresBank()) {
+      box.appendChild(Object.assign(document.createElement("p"), {
+        className: "empty-note",
+        textContent: "Elige un banco para anotar transferencias y retiros."
+      }));
+      if (totalEl) totalEl.textContent = money(0);
+      return;
+    }
+    const rows = filterMonthRows(entry.outflows);
+    if (!rows.length) {
+      box.appendChild(Object.assign(document.createElement("p"), {
+        className: "empty-note",
+        textContent: "Aún no hay transferencias a otras personas o comercios, ni retiros en cajero."
+      }));
+    }
+    rows.forEach((row) => {
+      const index = entry.outflows.indexOf(row);
+      const wrap = document.createElement("div");
+      wrap.className = "transfer-card";
+      const grid = document.createElement("div");
+      grid.className = "transfer-grid";
+      const retiro = row.kind === "retiro";
+      grid.append(
+        fieldWrap("Tipo", makeSelect(row.kind, [
+          { value: "transferencia", label: "Transferencia a un tercero" },
+          { value: "retiro", label: "Retiro en cajero" }
+        ], (value) => {
+          row.kind = value;
+          renderOutflows();
+        })),
+        fieldWrap("Monto", moneyField(row.amount, (val) => {
+          row.amount = val;
+          renderMonthTotals();
+        })),
+        fieldWrap(retiro ? "Dónde" : "A quién o a dónde", makeInput(row.concept || "", (input) => {
+          row.concept = input.value;
+        }, { type: "text", placeholder: retiro ? "Cajero o motivo" : "Persona, comercio u otro banco" })),
+        Object.assign(fieldWrap("4x1000", gmfToggle(row)), { className: "field gmf-field" })
+      );
+      const body = document.createElement("div");
+      body.className = "transfer-body";
+      body.append(grid);
+      wrap.append(body, removeButton(() => {
+        entry.outflows.splice(index, 1);
+        renderOutflows();
+        renderMonthTotals();
+      }));
+      box.appendChild(wrap);
+    });
+    if (totalEl) totalEl.textContent = money(sumList(filterMonthRows(entry.outflows)));
+  }
+
+  function renderCardRows() {
+    const box = document.getElementById("card-rows");
+    const hint = document.getElementById("card-hint");
+    const totalEl = document.getElementById("card-total");
+    if (!box) return;
+    const entry = currentMonth();
+    const active = activeBankId();
+    const cards = state.cards.filter((c) => active === null || (c.bankId || "") === active);
+    box.replaceChildren();
+    if (monthRequiresBank()) {
+      hint.textContent = "Elige un banco para anotar movimientos de tarjetas.";
+      if (totalEl) totalEl.textContent = money(0);
+      return;
+    }
+    const { year, month } = state.openMonth;
+    const dues = cards
+      .map((card) => ({ card, due: cardDue(card.id, year, month) }))
+      .filter((item) => item.due > 0);
+    hint.textContent = dues.length
+      ? `Este mes te toca pagar: ${dues.map((item) => `${item.card.name || "Tarjeta"} ${money(item.due)}`).join(" · ")}.`
+      : "";
+    if (!cards.length) {
+      emptyCreate(box, `Aún no tienes tarjetas de crédito en ${bankName(active)}.`, "Crear tarjeta", () => startMonthRow("card"));
+      if (totalEl) totalEl.textContent = money(0);
+      return;
+    }
+    const rows = filterMonthRows(entry.cardRows);
+    if (!rows.length) {
+      box.appendChild(Object.assign(document.createElement("p"), {
+        className: "empty-note",
+        textContent: "Aún no hay compras ni pagos de tarjeta este mes."
+      }));
+    }
+    rows.forEach((row) => {
+      const index = entry.cardRows.indexOf(row);
+      if (!row.cardId || !cards.some((c) => c.id === row.cardId)) row.cardId = cards[0].id;
+      if (!row.bankId) row.bankId = active;
+      const compra = row.kind === "compra";
+      const wrap = document.createElement("div");
+      wrap.className = "transfer-card";
+      const grid = document.createElement("div");
+      grid.className = "transfer-grid";
+      const cardSelect = makeSelect(row.cardId, [
+        ...cards.map((card) => ({ value: card.id, label: card.name || "Sin nombre" })),
+        createOption("card", active, (card) => {
+          row.cardId = card.id;
+          renderCardRows();
+        })
+      ], (value) => {
+        row.cardId = value;
+        renderCardRows();
+        renderMonthTotals();
+      });
+      grid.append(
+        fieldWrap("Tarjeta", cardSelect),
+        fieldWrap("Qué anotas", makeSelect(row.kind, [
+          { value: "compra", label: "Compra" },
+          { value: "pago", label: "Pago de cuotas" }
+        ], (value) => {
+          row.kind = value;
+          if (value === "compra") row.gmf = false;
+          renderCardRows();
+          renderExpenses();
+          renderMonthTotals();
+        })),
+        fieldWrap(compra ? "Valor de la compra" : "Valor del pago", moneyField(row.amount, (val) => {
+          row.amount = val;
+          renderExpenses();
+          renderMonthTotals();
+        }))
+      );
+      if (compra) {
+        const cuota = document.createElement("p");
+        cuota.className = "saving-meta card-cuota";
+        const paintCuota = () => {
+          const n = Math.max(1, Math.round(Number(row.installments) || 1));
+          cuota.textContent = n > 1
+            ? `Pagas ${n} cuotas de ${money((Number(row.amount) || 0) / n)}, desde el mes siguiente.`
+            : "Se paga en una sola cuota, el mes siguiente.";
+        };
+        paintCuota();
+        grid.append(
+          fieldWrap("Tipo de gasto", makeSelect(categoryById(row.category).id, categoryOptions(), (value) => {
+            row.category = value;
+            renderExpenses();
+            renderMonthTotals();
+          })),
+          fieldWrap("Cuotas", makeInput(row.installments, (input) => {
+            const parsed = Math.round(Number.parseFloat(input.value));
+            row.installments = Number.isFinite(parsed) ? Math.min(60, Math.max(1, parsed)) : 1;
+            paintCuota();
+            renderExpenses();
+          }, { type: "number", min: "1", max: "60", step: "1", inputmode: "numeric", placeholder: "1" })),
+          fieldWrap("Detalle", makeInput(row.concept || "", (input) => {
+            row.concept = input.value;
+            renderExpenses();
+          }, { type: "text", placeholder: "Qué compraste" }))
+        );
+        const body = document.createElement("div");
+        body.className = "transfer-body";
+        body.append(grid, cuota);
+        wrap.append(body);
+      } else {
+        grid.append(
+          fieldWrap("Detalle", makeInput(row.concept || "", (input) => {
+            row.concept = input.value;
+          }, { type: "text", placeholder: "Ej. cuota de marzo" })),
+          Object.assign(fieldWrap("4x1000", gmfToggle(row)), { className: "field gmf-field" })
+        );
+        const body = document.createElement("div");
+        body.className = "transfer-body";
+        body.append(grid);
+        wrap.append(body);
+      }
+      wrap.appendChild(removeButton(() => {
+        entry.cardRows.splice(index, 1);
+        renderCardRows();
+        renderExpenses();
+        renderMonthTotals();
+      }));
+      box.appendChild(wrap);
+    });
+    if (totalEl) totalEl.textContent = money(sumCardRows(filterMonthRows(entry.cardRows), "pago"));
+  }
+
+  function transferNote(t) {
+    const parts = [];
+    if (t.transferIn) parts.push(`Recibiste ${money(t.transferIn)} (cuenta como ingreso)`);
+    if (t.transferInvest) parts.push(`A inversión ${money(t.transferInvest)}`);
+    return parts.length ? parts.join(" · ") : "Lo que enviaste a otros bancos tuyos";
+  }
+
   function renderMonthTotals() {
     const entry = currentMonth();
     const sliced = monthViewEntry(entry);
@@ -3917,14 +4720,20 @@
     document.getElementById("contrib-total").textContent = money(t.contrib);
     document.getElementById("placement-total").textContent = money(t.invest);
     const transferTotal = document.getElementById("transfer-total");
-    if (transferTotal) transferTotal.textContent = money(t.transferNet);
+    if (transferTotal) transferTotal.textContent = money(t.transferOut + t.transferInvest);
+    const outflowTotal = document.getElementById("outflow-total");
+    if (outflowTotal) outflowTotal.textContent = money(t.outflow);
+    const purchaseTotal = document.getElementById("purchase-total");
+    if (purchaseTotal) purchaseTotal.textContent = money(sumList(sliced.purchases));
+    const cardTotal = document.getElementById("card-total");
+    if (cardTotal) cardTotal.textContent = money(t.cardPay);
     const bankLabel = monthRequiresBank() ? "Todos los bancos" : bankName(activeBankId());
-    const slices = expenseSlices(sliced.expenses, t.aportes, t.invest, t.debtPay);
+    const slices = expenseSlices(spendRows(sliced), t.aportes, t.invest, t.debtPay, t.outflow, t.transferInvest);
     const gmf = gmfForRows(entry);
     const gmfMetric = metric("Calculadora de 4x1000", money(gmf.counted), gmfNoteText());
     gmfMetric.classList.add("metric-gmf");
     gmfMetric.insertBefore(
-      Object.assign(document.createElement("p"), { className: "metric-tax", textContent: `Impuesto pagado: ${money(gmf.tax)}` }),
+      Object.assign(document.createElement("p"), { className: "metric-tax", textContent: `Cálculo de impuesto: ${money(gmf.tax)}` }),
       gmfMetric.querySelector(".sub")
     );
     document.getElementById("month-metrics").replaceChildren(
@@ -3933,7 +4742,9 @@
       metric("Gastos", money(t.expense), "Lo que gastaste"),
       metric("Deudas", money(t.debtPay), t.debtNew ? `Te prestaron ${money(t.debtNew)}` : "Lo que pagaste"),
       metric("Ahorraste", money(t.contrib), t.retiros ? `Sacaste ${money(t.retiros)}` : "Neto del mes"),
-      metric("Transferencias", money(t.transferNet), t.transferOut || t.transferIn ? `Salió ${money(t.transferOut)} · Entró ${money(t.transferIn)}` : "Entre tus bancos"),
+      metric("Tarjetas de crédito", money(t.cardPay), t.cardBuy ? `Pagaste · compraste ${money(t.cardBuy)}` : "Lo que pagaste a tus tarjetas"),
+      metric("Transferencias y retiros", money(t.outflow), "A terceros y en cajeros"),
+      metric("Entre mis bancos", money(t.transferOut), transferNote(t)),
       metric("Invertiste", money(t.invest), "En tus inversiones"),
       gmfMetric
     );
@@ -3963,14 +4774,21 @@
     box.appendChild(head);
     const block = document.createElement("section");
     block.className = "invoice-month";
-    addInvoiceRows(block, "Ingresos", (sliced.incomes || []).map((row) => ({
-      name: row.name || "Ingreso",
-      amount: row.amount
-    })));
-    addInvoiceRows(block, "Gastos", (sliced.expenses || []).map((row) => ({
-      name: `${row.name || "Gasto"}${row.gmf ? " · con 4x1000" : ""}`,
-      amount: row.amount
-    })));
+    addInvoiceRows(block, "Ingresos", [
+      ...(sliced.incomes || []).map((row) => ({
+        name: row.name || "Ingreso",
+        amount: row.amount
+      })),
+      ...receivedInvoiceRows(sliced)
+    ]);
+    addInvoiceRows(block, "Gastos", [
+      ...(sliced.expenses || []).map((row) => ({
+        name: `${row.name || "Gasto"}${row.gmf ? " · con 4x1000" : ""}`,
+        amount: row.amount
+      })),
+      ...purchaseInvoiceRows(sliced, false)
+    ]);
+    extraInvoiceGroups(block, sliced);
     addInvoiceRows(block, "Deudas", (sliced.debts || []).map((row) => debtInvoiceRow(row, false)));
     addInvoiceRows(block, "Ahorros", (sliced.contributions || []).map((row) => {
       const pot = state.savings.find((item) => item.id === row.savingId);
@@ -3980,10 +4798,7 @@
         amount: contribSigned(row)
       };
     }));
-    addInvoiceRows(block, "Transferencias", (sliced.transfers || []).map((row) => ({
-      name: `${bankName(row.fromBankId)} → ${bankName(row.toBankId)}${row.concept ? ` · ${row.concept}` : ""}${row.gmf ? " · con 4x1000" : ""}`,
-      amount: row.amount
-    })));
+    transferInvoiceGroups(block, sliced);
     addInvoiceRows(block, "Inversiones", (sliced.investments || []).map((row) => {
       const pot = state.investments.find((item) => item.id === row.investmentId);
       return {
@@ -4067,7 +4882,7 @@
       notesInput.value = (entry.notesByBank && entry.notesByBank[active]) || "";
     }
     const locked = monthRequiresBank();
-    ["add-income", "add-expense", "add-debt-row", "add-contrib", "add-placement", "add-transfer"].forEach((id) => {
+    ["add-income", "add-expense", "add-purchase", "add-card-row", "add-debt-row", "add-contrib", "add-outflow", "add-placement", "add-transfer"].forEach((id) => {
       const btn = document.getElementById(id);
       if (btn) btn.disabled = locked;
     });
@@ -4075,8 +4890,11 @@
     if (banner) banner.hidden = !locked;
     renderIncomes();
     renderExpenses();
+    renderPurchases();
+    renderCardRows();
     renderDebtRows();
     renderContribs();
+    renderOutflows();
     renderTransfers();
     renderPlacements();
     renderMonthTotals();
@@ -4095,6 +4913,7 @@
       setView("overview");
       renderOverview();
     }
+    syncSide();
   }
 
   function snapshot() {
@@ -4108,6 +4927,7 @@
       accounts: state.accounts.map((row) => ({ ...row })),
       assets: state.assets.map((row) => ({ ...row })),
       debts: state.debts.map((row) => ({ ...row })),
+      cards: state.cards.map((row) => ({ ...row })),
       savings: state.savings.map((row) => ({ ...row })),
       investments: state.investments.map((row) => ({
         ...row,
@@ -4134,12 +4954,14 @@
       state.accounts = Array.isArray(data.accounts) ? data.accounts.map(normalizeAccount) : [];
       state.assets = Array.isArray(data.assets) ? data.assets.map(normalizeAsset) : [];
       state.debts = Array.isArray(data.debts) ? data.debts.map(normalizeDebt) : [];
+      state.cards = Array.isArray(data.cards) ? data.cards.map(normalizeCard) : [];
       state.savings = Array.isArray(data.savings) ? data.savings.map(normalizeSaving) : [];
       state.investments = Array.isArray(data.investments) ? data.investments.map(normalizeInvestment) : [];
       state.years = data.years;
       state.openMonth = null;
       state.openInvestId = null;
       state.expandedDebtId = null;
+      state.expandedCardId = null;
     } else if (data.incomes || data.expenses) {
       const period = (data.profile && data.profile.period) || `${state.viewYear}-01`;
       const [year, month] = period.split("-");
@@ -4151,6 +4973,7 @@
       state.accounts = [];
       state.assets = [];
       state.debts = [];
+      state.cards = [];
       state.savings = [];
       state.investments = [];
       state.years = {
@@ -4182,6 +5005,7 @@
     const e = uid();
     const card = uid();
     const loan = uid();
+    const visa = uid();
     const year = String(now.getFullYear());
     const month = monthKey(now.getMonth());
     state.profile = { name: "Ana" };
@@ -4218,10 +5042,14 @@
       }
     ];
     state.debts = [
-      { id: card, name: "Tarjeta de crédito", bankId: bank1, initialAmount: 2400000 },
+      { id: card, name: "Crédito de estudio", bankId: bank1, initialAmount: 2400000 },
       { id: loan, name: "Crédito de libre inversión", bankId: bank1, initialAmount: 9000000 }
     ];
     state.expandedDebtId = null;
+    state.cards = [
+      { id: visa, name: "Visa Clásica", bankId: bank1, limit: 6000000, initialAmount: 800000 }
+    ];
+    state.expandedCardId = null;
     state.savings = [
       { id: a, name: "Fondo de emergencia", target: 10000000, bankId: bank1, initialAmount: 3500000 },
       { id: b, name: "Vehículos", target: 4500000, bankId: bank1, initialAmount: 800000 }
@@ -4341,6 +5169,17 @@
                 investmentId: e,
                 gmf: true
               }
+            ],
+            purchases: [
+              { id: uid(), name: "Café", category: "ocio", amount: 12000, note: "Con Laura", bankId: bank1, gmf: false },
+              { id: uid(), name: "Cine", category: "ocio", amount: 46000, note: "", bankId: bank1, gmf: true }
+            ],
+            outflows: [
+              { id: uid(), kind: "retiro", amount: 200000, concept: "Cajero del centro", bankId: bank1, gmf: true },
+              { id: uid(), kind: "transferencia", amount: 150000, concept: "Mamá", bankId: bank1, gmf: true }
+            ],
+            cardRows: [
+              { id: uid(), cardId: visa, kind: "compra", amount: 1200000, concept: "Audífonos", category: "otros", installments: 6, bankId: bank1, gmf: false }
             ]
           },
           "02": {
@@ -4361,7 +5200,16 @@
             investments: [
               { id: uid(), investmentId: e, amount: 150000, concept: "", bankId: bank2 }
             ],
-            transfers: []
+            transfers: [
+              { id: uid(), fromBankId: bank1, toBankId: bank2, amount: 300000, concept: "Pasar para el mes", investmentId: "", gmf: true }
+            ],
+            purchases: [
+              { id: uid(), name: "Domicilio", category: "alimentacion", amount: 38000, note: "", bankId: bank1, gmf: false }
+            ],
+            outflows: [],
+            cardRows: [
+              { id: uid(), cardId: visa, kind: "pago", amount: 400000, concept: "Cuota de febrero", category: "otros", installments: 1, bankId: bank1, gmf: true }
+            ]
           }
         }
       }
@@ -4462,10 +5310,18 @@
     debt: {
       title: "Nueva deuda",
       option: "+ Crear deuda nueva",
-      placeholder: "Ej. Tarjeta de crédito",
+      placeholder: "Ej. Crédito de libre inversión",
       amount: "Lo que debes hoy",
       fallback: "Nueva deuda",
       note: "Cada pago que anotes en el mes baja lo que debes."
+    },
+    card: {
+      title: "Nueva tarjeta de crédito",
+      option: "+ Crear tarjeta nueva",
+      placeholder: "Ej. Visa Gold",
+      amount: "Lo que debes hoy en la tarjeta",
+      fallback: "Nueva tarjeta",
+      note: "El cupo y los demás detalles los puedes cambiar en Resumen."
     }
   };
   const potModal = document.getElementById("pot-modal");
@@ -4532,6 +5388,9 @@
         holdings: []
       });
       state.investments.push(item);
+    } else if (kind === "card") {
+      item = normalizeCard({ id: uid(), name, bankId, initialAmount: amount });
+      state.cards.push(item);
     } else {
       item = normalizeDebt({ id: uid(), name, bankId, initialAmount: amount });
       state.debts.push(item);
@@ -4550,6 +5409,10 @@
     } else if (kind === "investment") {
       entry.investments.push({ id: uid(), investmentId: potId, amount: 0, concept: "", bankId, gmf: false });
       renderPlacements();
+    } else if (kind === "card") {
+      entry.cardRows.push({ id: uid(), cardId: potId, kind: "compra", amount: 0, concept: "", category: "otros", installments: 1, bankId, gmf: false });
+      renderCardRows();
+      renderExpenses();
     } else {
       entry.debts.push({ id: uid(), debtId: potId, kind: "pago", amount: 0, concept: "", bankId, gmf: false });
       renderDebtRows();
@@ -4562,7 +5425,11 @@
       Norte.toast("Selecciona un banco antes de anotar el mes.", "error");
       return;
     }
-    const source = kind === "saving" ? state.savings : kind === "investment" ? state.investments : state.debts;
+    const source = kind === "saving"
+      ? state.savings
+      : kind === "investment"
+        ? state.investments
+        : kind === "card" ? state.cards : state.debts;
     const bankId = activeBankId();
     const pots = source.filter((item) => (item.bankId || "") === bankId);
     if (!pots.length) {
@@ -4622,6 +5489,17 @@
     state.debts.push(debt);
     state.expandedDebtId = debt.id;
     render();
+  });
+  document.getElementById("add-card").addEventListener("click", () => {
+    const card = normalizeCard({ name: "Nueva tarjeta", bankId: defaultBankId() });
+    state.cards.push(card);
+    state.expandedCardId = card.id;
+    render();
+  });
+  document.getElementById("toggle-cards-layout").addEventListener("click", () => {
+    state.cardsLayout = state.cardsLayout === "compact" ? "full" : "compact";
+    state.expandedCardId = null;
+    renderCards();
   });
   document.getElementById("toggle-debts-layout").addEventListener("click", () => {
     state.debtsLayout = state.debtsLayout === "compact" ? "full" : "compact";
@@ -4715,6 +5593,25 @@
     currentMonth().expenses.push({ id: uid(), name: "", category: "otros", amount: 0, bankId: activeBankId() });
     renderExpenses();
   });
+  document.getElementById("add-purchase").addEventListener("click", () => {
+    if (monthRequiresBank()) {
+      Norte.toast("Selecciona un banco antes de anotar el mes.", "error");
+      return;
+    }
+    currentMonth().purchases.push({ id: uid(), name: "", category: "ocio", amount: 0, note: "", bankId: activeBankId(), gmf: false });
+    renderPurchases();
+    renderExpenses();
+  });
+  document.getElementById("add-outflow").addEventListener("click", () => {
+    if (monthRequiresBank()) {
+      Norte.toast("Selecciona un banco antes de anotar el mes.", "error");
+      return;
+    }
+    currentMonth().outflows.push({ id: uid(), kind: "transferencia", amount: 0, concept: "", bankId: activeBankId(), gmf: false });
+    renderOutflows();
+    renderMonthTotals();
+  });
+  document.getElementById("add-card-row").addEventListener("click", () => startMonthRow("card"));
   document.getElementById("add-debt-row").addEventListener("click", () => startMonthRow("debt"));
   document.getElementById("add-contrib").addEventListener("click", () => startMonthRow("saving"));
   document.getElementById("add-placement").addEventListener("click", () => startMonthRow("investment"));
@@ -4735,14 +5632,30 @@
   Norte.enableDrop(document.body, FEATURE, applySnapshot);
   window.addEventListener("hashchange", () => {
     const hash = readHash();
+    const tab = readTabHash();
     if (hash) openMonth(hash.year, hash.month);
+    else if (tab) goTab(tab);
     else {
       state.openMonth = null;
       render();
     }
   });
+  // Los accesos del menú lateral cambian de pestaña sin recargar, esté donde esté la persona
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest && event.target.closest("[data-side-tab]");
+    if (!link) return;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1) return;
+    const tab = SIDE_TABS[link.dataset.sideTab];
+    if (!tab) return;
+    event.preventDefault();
+    history.replaceState(null, "", `${location.pathname}${location.search}#${link.dataset.sideTab}`);
+    goTab(tab);
+    if (Norte.closeSide) Norte.closeSide();
+  });
 
   ensureYear(state.viewYear);
+  const initialTab = readTabHash();
+  if (initialTab) state.tab = initialTab;
   const initial = readHash();
   if (initial) {
     state.viewYear = initial.year;

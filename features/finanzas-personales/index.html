@@ -174,7 +174,7 @@
           </button>
         </div>
       </div>
-      <p class="tab-desc" id="tab-desc">Tu año de un vistazo: totales, deudas, ahorros e inversiones.</p>
+      <p class="tab-desc" id="tab-desc">Tu año de un vistazo: totales, deudas, tarjetas, ahorros e inversiones.</p>
 
       <div class="panel" id="panel-recopilado">
         <div class="metrics cols-4" id="year-metrics"></div>
@@ -210,7 +210,7 @@
           <div class="list-head">
             <div>
               <h2>Deudas</h2>
-              <p>Tarjetas y créditos. Anota los pagos de cada mes y verás cuánto te falta.</p>
+              <p>Créditos y préstamos. Anota los pagos de cada mes y verás cuánto te falta.</p>
             </div>
             <div class="head-actions">
               <button class="btn btn-sm btn-ghost" type="button" id="toggle-debts-layout">Vista completa</button>
@@ -222,6 +222,24 @@
           </div>
           <div class="item-list" id="debts-list"></div>
           <div class="list-total" id="debts-total" hidden></div>
+        </section>
+
+        <section class="card card-pad">
+          <div class="list-head">
+            <div>
+              <h2>Tarjetas de crédito</h2>
+              <p>Tus tarjetas con sus compras en cuotas y pagos. Verás cuánto debes y cuánto cupo te queda.</p>
+            </div>
+            <div class="head-actions">
+              <button class="btn btn-sm btn-ghost" type="button" id="toggle-cards-layout">Vista completa</button>
+              <button class="btn btn-sm btn-primary" type="button" id="add-card">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Nueva tarjeta
+              </button>
+            </div>
+          </div>
+          <div class="item-list" id="cards-list"></div>
+          <div class="list-total" id="cards-total" hidden></div>
         </section>
 
         <section class="card card-pad">
@@ -374,7 +392,7 @@
             <div class="list-head">
               <div>
                 <h2>Gastos</h2>
-                <p>Gastos del mes: arriendo, mercado, servicios…</p>
+                <p>Gastos del mes: arriendo, mercado, servicios… Las compras y las compras con tarjeta aparecen aquí solas.</p>
               </div>
               <button class="btn btn-sm btn-outline" type="button" id="add-expense">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
@@ -385,6 +403,44 @@
             <div class="list-total">
               <span>Total de gastos</span>
               <strong id="expense-total">$0</strong>
+            </div>
+          </section>
+
+          <section class="card card-pad">
+            <div class="list-head">
+              <div>
+                <h2>Compras</h2>
+                <p>Cada compra queda en Gastos con el tipo que elijas: café, mercado, ropa…</p>
+              </div>
+              <button class="btn btn-sm btn-outline" type="button" id="add-purchase">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Agregar
+              </button>
+            </div>
+            <p class="section-hint" id="purchase-hint"></p>
+            <div class="rows" id="purchase-rows"></div>
+            <div class="list-total">
+              <span>Compras del mes</span>
+              <strong id="purchase-total">$0</strong>
+            </div>
+          </section>
+
+          <section class="card card-pad">
+            <div class="list-head">
+              <div>
+                <h2>Tarjetas de crédito</h2>
+                <p>Compras en cuotas y pagos de tus tarjetas. La compra cuenta como gasto; el dinero sale cuando pagas.</p>
+              </div>
+              <button class="btn btn-sm btn-outline" type="button" id="add-card-row">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Agregar
+              </button>
+            </div>
+            <p class="section-hint" id="card-hint"></p>
+            <div class="rows" id="card-rows"></div>
+            <div class="list-total">
+              <span>Pagaste a tarjetas</span>
+              <strong id="card-total">$0</strong>
             </div>
           </section>
 
@@ -429,8 +485,26 @@
           <section class="card card-pad">
             <div class="list-head">
               <div>
-                <h2>Transferencias</h2>
-                <p>Dinero que pasas de un banco a otro.</p>
+                <h2>Transferencias y retiros</h2>
+                <p>Dinero que envías a otras personas, comercios o bancos que no son tuyos, y retiros en cajero.</p>
+              </div>
+              <button class="btn btn-sm btn-outline" type="button" id="add-outflow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Agregar
+              </button>
+            </div>
+            <div class="rows" id="outflow-rows"></div>
+            <div class="list-total">
+              <span>Salió por transferencias y retiros</span>
+              <strong id="outflow-total">$0</strong>
+            </div>
+          </section>
+
+          <section class="card card-pad">
+            <div class="list-head">
+              <div>
+                <h2>Transferencias entre mis bancos</h2>
+                <p>Dinero que pasas de un banco tuyo a otro. En el banco que lo recibe cuenta como ingreso.</p>
               </div>
               <button class="btn btn-sm btn-outline" type="button" id="add-transfer">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
@@ -439,7 +513,7 @@
             </div>
             <div class="rows" id="transfer-rows"></div>
             <div class="list-total">
-              <span>Neto en este banco</span>
+              <span>Enviaste a tus otros bancos</span>
               <strong id="transfer-total">$0</strong>
             </div>
           </section>

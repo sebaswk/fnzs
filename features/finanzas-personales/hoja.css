@@ -34,16 +34,11 @@
 .sheet-bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 2px;
   min-height: 52px;
   padding: 8px 10px;
-  overflow-x: auto;
   border-bottom: 1px solid var(--line);
-  scrollbar-width: none;
-}
-
-.sheet-bar::-webkit-scrollbar {
-  display: none;
 }
 
 .sheet-tool {
@@ -90,6 +85,15 @@
 .sheet-tool-menu {
   gap: 5px;
   padding: 0 7px 0 9px;
+}
+
+.sheet-fontsize {
+  min-width: 62px;
+}
+
+.sheet-fontsize span {
+  min-width: 2.2ch;
+  text-align: left;
 }
 
 .sheet-format span {
@@ -474,6 +478,51 @@
 
 .sheet-cell[class*="fill-"] {
   background-color: rgba(var(--fill), 0.18);
+}
+
+/* Bordes dibujados por el usuario (arriba / izquierda de cada celda) */
+
+.sheet {
+  --sheet-border: #e8ebf0;
+}
+
+.sheet-cell.bd-t {
+  box-shadow: inset 0 1px 0 0 var(--sheet-border);
+}
+
+.sheet-cell.bd-l {
+  box-shadow: inset 1px 0 0 0 var(--sheet-border);
+}
+
+.sheet-cell.bd-t.bd-l {
+  box-shadow: inset 0 1px 0 0 var(--sheet-border), inset 1px 0 0 0 var(--sheet-border);
+}
+
+/* Vista: sin líneas de cuadrícula y/o sin encabezados */
+
+.sheet.no-grid .sheet-grid td,
+.sheet.no-grid .sheet-grid tbody tr:last-child td {
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+}
+
+.sheet.no-grid .sheet-grid .sheet-rowhead {
+  border-bottom-color: var(--line);
+}
+
+.sheet.no-heads .sheet-grid thead {
+  display: none;
+}
+
+.sheet.no-heads .sheet-grid .sheet-rowhead {
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  font-size: 0;
+  line-height: 0;
+  color: transparent;
+  box-shadow: none;
 }
 
 /* Selección y edición */
@@ -927,7 +976,7 @@
     height: 36px;
   }
 
-  .sheet-tool:not(.sheet-format) > span {
+  .sheet-tool:not(.sheet-format):not(.sheet-fontsize) > span {
     display: none;
   }
 

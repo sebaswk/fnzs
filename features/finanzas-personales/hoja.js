@@ -123,7 +123,18 @@
     { id: "slate", label: "Gris" }
   ];
   const FILL_IDS = new Set(FILLS.map((fill) => fill.id).filter(Boolean));
+  const FONT_SIZES = [9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 40];
+  const FONT_MIN = 6;
+  const FONT_MAX = 72;
+  const SHEET_MARK = "[Hoja]";
+  const EXPORT_NAME = "personal";
   const ALIGNS = new Set(["left", "center", "right"]);
+  const ALIGN_NEXT = { left: "center", center: "right", right: "left" };
+  const ALIGN_LABELS = {
+    left: "Alineación: izquierda (clic para centrar)",
+    center: "Alineación: centro (clic para pasar a la derecha)",
+    right: "Alineación: derecha (clic para volver a la izquierda)"
+  };
   const FORMAT_IDS = new Set(FORMATS.map((fmt) => fmt.id).filter(Boolean));
 
   class SheetError {
@@ -1451,6 +1462,10 @@
     if (FORMAT_IDS.has(raw.f)) cell.f = raw.f;
     if (ALIGNS.has(raw.a)) cell.a = raw.a;
     if (FILL_IDS.has(raw.bg)) cell.bg = raw.bg;
+    const fs = Number(raw.fs);
+    if (Number.isFinite(fs) && fs >= FONT_MIN && fs <= FONT_MAX) cell.fs = Math.round(fs);
+    if (raw.bt) cell.bt = 1;
+    if (raw.bl) cell.bl = 1;
     return Object.keys(cell).length ? cell : null;
   }
 
@@ -1488,7 +1503,7 @@
     });
     const name = uniqueName(cleanSheetName(source.name) || `Hoja${index + 1}`, taken);
     taken.push(name);
-    return {
+    const sheet = {
       id: typeof source.id === "string" && source.id ? source.id : uid(),
       name,
       rows: clamp(Math.max(Number(source.rows) || DEFAULT_ROWS, maxR + 1), 1, MAX_ROWS),
@@ -1497,6 +1512,9 @@
       widths,
       merges
     };
+    if (source.noGrid) sheet.noGrid = 1;
+    if (source.noHeads) sheet.noHeads = 1;
+    return sheet;
   }
 
   function sheetBuilder(name) {
@@ -1820,6 +1838,9 @@
     minus: SVG("<path d=\"M5 12h14\"/>", " stroke-width=\"2\""),
     download: SVG("<path d=\"M12 3v12\"/><path d=\"m7 10 5 5 5-5\"/><path d=\"M5 21h14\"/>"),
     help: SVG("<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M9.6 9.2a2.5 2.5 0 0 1 4.8.8c0 1.7-2.4 2.2-2.4 3.6\"/><path d=\"M12 17h.01\"/>"),
+    text: SVG("<path d=\"m4 19 6.5-15L17 19\"/><path d=\"M6.6 14h7.8\"/><path d=\"M20 9v6M17 12h6\" stroke-width=\"1.6\"/>"),
+    borders: SVG("<rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"1.5\"/><path d=\"M12 4v16M4 12h16\"/>"),
+    eye: SVG("<path d=\"M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>"),
     chevron: SVG("<path d=\"m6 9 6 6 6-6\"/>", " class=\"sheet-chevron\""),
     plus: SVG("<path d=\"M12 5v14M5 12h14\"/>", " stroke-width=\"2\""),
     more: SVG("<circle cx=\"5\" cy=\"12\" r=\"1\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/><circle cx=\"19\" cy=\"12\" r=\"1\"/>", " stroke-width=\"2.4\"")
@@ -1947,20 +1968,24 @@
     const btnUndo = tool(ICONS.undo, `Deshacer (${MOD}+Z)`, () => undo());
     const btnRedo = tool(ICONS.redo, `Rehacer (${MOD}+Y)`, () => redo());
     const btnBold = tool(ICONS.bold, `Negrita (${MOD}+B)`, () => toggleBold());
+    const btnFont = tool("", "Tamaño de la letra", (button) => openFontMenu(button));
+    btnFont.classList.add("sheet-tool-menu", "sheet-fontsize");
     const btnFormat = tool("", "Formato del número", (button) => openFormatMenu(button));
     btnFormat.classList.add("sheet-tool-menu", "sheet-format");
-    const btnLeft = tool(ICONS.left, "Alinear a la izquierda", () => setAlign("left"));
-    const btnCenter = tool(ICONS.center, "Centrar", () => setAlign("center"));
-    const btnRight = tool(ICONS.right, "Alinear a la derecha", () => setAlign("right"));
+    const btnAlign = tool(ICONS.left, ALIGN_LABELS.left, () => cycleAlign());
     const btnFill = tool(`${ICONS.fill}<i class="sheet-fill-swatch"></i>${ICONS.chevron}`, "Color de fondo", (button) => openFillMenu(button));
     btnFill.classList.add("sheet-tool-menu");
+    const btnBorders = tool(`${ICONS.borders}${ICONS.chevron}`, "Bordes", (button) => openBordersMenu(button));
+    btnBorders.classList.add("sheet-tool-menu");
+    const btnView = tool(`${ICONS.eye}<span>Vista</span>${ICONS.chevron}`, "Mostrar u ocultar líneas y encabezados", (button) => openViewMenu(button));
+    btnView.classList.add("sheet-tool-menu");
     const btnMerge = tool(ICONS.merge, "Combinar celdas", () => toggleMerge(), "Combinar");
     const btnGrid = tool(`${ICONS.grid}`, "Insertar o eliminar filas y columnas", (button) => openGridMenu(button), "Filas y columnas");
     btnGrid.classList.add("sheet-tool-menu");
     btnGrid.insertAdjacentHTML("beforeend", ICONS.chevron);
     const spacer = el("span", "sheet-spacer");
     const btnImport = tool(ICONS.upload, "Cargar un archivo CSV en una hoja nueva", () => fileInput.click(), "Cargar CSV");
-    const btnCsv = tool(ICONS.download, "Descargar esta hoja como CSV (se abre en Excel)", () => exportCsv(), "Descargar CSV");
+    const btnCsv = tool(ICONS.download, `Descargar todas las hojas en un solo archivo CSV («${EXPORT_NAME}»)`, () => exportCsv(), "Descargar CSV");
     const fileInput = el("input");
     fileInput.type = "file";
     fileInput.accept = ".csv,.tsv,.txt,text/csv,text/plain";
@@ -1971,7 +1996,7 @@
       if (file) importCsv(file);
     });
     const btnHelp = tool(ICONS.help, "Cómo usar la hoja", () => toggleHelp(), "Ayuda");
-    bar.append(btnUndo, btnRedo, sep(), btnBold, btnFormat, sep(), btnLeft, btnCenter, btnRight, btnFill, sep(), btnMerge, btnGrid, spacer, btnImport, btnCsv, btnHelp, fileInput);
+    bar.append(btnUndo, btnRedo, sep(), btnBold, btnFont, btnFormat, sep(), btnAlign, btnFill, btnBorders, sep(), btnMerge, btnGrid, btnView, spacer, btnImport, btnCsv, btnHelp, fileInput);
 
     const help = el("div", "sheet-help");
     help.hidden = true;
@@ -1993,7 +2018,9 @@
           <p><b>${MOD}+C</b> / <b>${MOD}+V</b> copiar y pegar, también desde Excel o Google Sheets · <b>${MOD}+Z</b> deshacer · <b>${MOD}+B</b> negrita · <b>Supr</b> borrar · <b>${MOD}+D</b> copiar hacia abajo · <b>Shift + flechas</b> seleccionar.</p>
           <p>Clic derecho sobre una celda o encabezado para insertar o eliminar filas y columnas, o para darles un ancho exacto con <b>Ancho de la columna…</b></p>
           <p>Usa la lupa de abajo a la derecha para ver la hoja más grande o más pequeña. También funciona con <b>Ctrl + rueda del mouse</b> o pellizcando en el trackpad.</p>
-          <p><b>Cargar CSV</b> abre un archivo en una hoja nueva para seguir editándolo.</p>
+          <p><b>Tamaño</b> cambia la letra de las celdas elegidas y <b>Bordes</b> dibuja líneas: así puedes armar tus propias tablas.</p>
+          <p><b>Vista</b> oculta las líneas de la cuadrícula y los encabezados (A, B, 1, 2…) de la hoja para dejar un fondo limpio. Los bordes que dibujaste se quedan.</p>
+          <p><b>Descargar CSV</b> baja todas las hojas en un solo archivo llamado <b>${EXPORT_NAME}</b>. <b>Cargar CSV</b> abre un archivo en una hoja nueva (si trae varias hojas, las separa).</p>
         </section>
       </div>
       <h4>Funciones disponibles</h4>
@@ -2125,8 +2152,9 @@
 
     function applyWidths(override) {
       const sheet = current();
-      if (headColEl) headColEl.style.width = `${px(HEAD_WIDTH)}px`;
-      let total = px(HEAD_WIDTH);
+      const headW = sheet.noHeads ? 0 : px(HEAD_WIDTH);
+      if (headColEl) headColEl.style.width = `${headW}px`;
+      let total = headW;
       colEls.forEach((col, c) => {
         const w = px(override && override.c === c ? override.w : widthOf(sheet, c));
         col.style.width = `${w}px`;
@@ -2204,8 +2232,16 @@
       return `${sheet.id}|${sheet.rows}|${sheet.cols}|${JSON.stringify(sheet.widths || {})}`;
     }
 
+    function paintView() {
+      const sheet = current();
+      root.classList.toggle("no-grid", Boolean(sheet.noGrid));
+      root.classList.toggle("no-heads", Boolean(sheet.noHeads));
+      applyWidths();
+    }
+
     function paintCells() {
       const sheet = current();
+      paintView();
       rebuildMerges();
       evaluator = createEvaluator(model);
       for (let r = 0; r < sheet.rows; r += 1) {
@@ -2226,7 +2262,11 @@
         if (data.b) cls += " is-bold";
         if (data.a) cls += ` al-${data.a}`;
         if (data.bg) cls += ` fill-${data.bg}`;
+        if (data.bt) cls += " bd-t";
+        if (data.bl) cls += " bd-l";
       }
+      const size = data && data.fs ? `calc(${data.fs}px * var(--sheet-zoom))` : "";
+      if (td.style.fontSize !== size) td.style.fontSize = size;
       const merge = mergeMap.get(cellKey(r, c));
       let hide = false;
       let rowSpan = 1;
@@ -2334,9 +2374,15 @@
       btnRedo.disabled = !redoStack.length;
       btnBold.classList.toggle("is-on", Boolean(data.b));
       const align = data.a || "";
-      btnLeft.classList.toggle("is-on", align === "left");
-      btnCenter.classList.toggle("is-on", align === "center");
-      btnRight.classList.toggle("is-on", align === "right");
+      const shown = align || "left";
+      if (btnAlign.dataset.align !== shown) {
+        btnAlign.dataset.align = shown;
+        btnAlign.innerHTML = ICONS[shown];
+        btnAlign.title = ALIGN_LABELS[shown];
+        btnAlign.setAttribute("aria-label", ALIGN_LABELS[shown]);
+      }
+      btnAlign.classList.toggle("is-on", shown !== "left");
+      btnFont.innerHTML = `${ICONS.text}<span>${data.fs ? data.fs : "Auto"}</span>${ICONS.chevron}`;
       const fmt = FORMATS.find((item) => item.id === (data.f || "")) || FORMATS[0];
       btnFormat.innerHTML = `<span>${fmt.label}</span>${ICONS.chevron}`;
       const swatch = btnFill.querySelector(".sheet-fill-swatch");
@@ -2388,14 +2434,14 @@
     }
 
     let measureCtx = null;
-    function textWidth(text, bold) {
+    function textWidth(text, bold, size) {
       if (!measureCtx) {
         const canvasEl = document.createElement("canvas");
         measureCtx = canvasEl.getContext("2d");
       }
       if (!measureCtx) return text.length * 8;
       const family = getComputedStyle(root).fontFamily || "sans-serif";
-      measureCtx.font = `${bold ? 700 : 500} 13.5px ${family}`;
+      measureCtx.font = `${bold ? 700 : 500} ${size || 13.5}px ${family}`;
       return measureCtx.measureText(text).width;
     }
 
@@ -2406,8 +2452,13 @@
       editor.style.left = `${td.offsetLeft}px`;
       editor.style.top = `${td.offsetTop}px`;
       editor.style.height = `${td.offsetHeight}px`;
+      const own = current().cells[cellKey(editing.r, editing.c)];
+      const size = own && own.fs ? own.fs : 0;
+      const base = `calc(${size}px * var(--sheet-zoom))`;
+      editor.style.fontSize = size ? (window.innerWidth <= 640 ? `max(16px, ${base})` : base) : "";
+      editor.style.lineHeight = size ? `${Math.max(16, td.offsetHeight - 4)}px` : "";
       const room = canvas.offsetWidth - td.offsetLeft - 4;
-      const wanted = Math.ceil((textWidth(editor.value || "") + 28) * zoom);
+      const wanted = Math.ceil((textWidth(editor.value || "", own && own.b, size) + 28) * zoom);
       editor.style.width = `${Math.max(td.offsetWidth, Math.min(wanted, Math.max(room, td.offsetWidth)))}px`;
     }
 
@@ -2782,15 +2833,13 @@
       }));
     }
 
-    function setAlign(align) {
+    function cycleAlign() {
       if (editing) commitEdit(null);
-      const sheet = current();
-      const active = sheet.cells[cellKey(sel.r, sel.c)];
-      const next = active && active.a === align ? "" : align;
+      const active = current().cells[cellKey(sel.r, sel.c)];
+      const next = ALIGN_NEXT[(active && active.a) || "left"];
       mutate(() => forEachSelected((s, r, c, key) => {
         const cell = { ...(s.cells[key] || {}) };
-        if (next) cell.a = next;
-        else delete cell.a;
+        cell.a = next;
         storeCell(s, key, cell);
       }));
     }
@@ -2803,6 +2852,85 @@
         else delete cell.bg;
         storeCell(s, key, cell);
       }));
+    }
+
+    function setFontSize(size) {
+      if (editing) commitEdit(null);
+      mutate(() => forEachSelected((s, r, c, key) => {
+        const cell = { ...(s.cells[key] || {}) };
+        if (size) cell.fs = size;
+        else delete cell.fs;
+        storeCell(s, key, cell);
+      }));
+    }
+
+    /* Bordes: cada línea se guarda como "arriba" (bt) o "a la izquierda" (bl) de una celda,
+       así una línea compartida entre dos celdas es una sola y se ve igual en toda la tabla. */
+    function setEdge(sheet, r, c, flag, on) {
+      if (r < 0 || c < 0 || r >= MAX_ROWS || c >= MAX_COLS) return;
+      const key = cellKey(r, c);
+      const cell = { ...(sheet.cells[key] || {}) };
+      if (on) {
+        cell[flag] = 1;
+        sheet.rows = Math.max(sheet.rows, r + 1);
+        sheet.cols = Math.max(sheet.cols, c + 1);
+      } else {
+        delete cell[flag];
+      }
+      storeCell(sheet, key, cell);
+    }
+
+    function setBorders(mode) {
+      if (editing) commitEdit(null);
+      const { r1, c1, r2, c2 } = norm();
+      const on = mode !== "none";
+      mutate((s) => {
+        const horizontal = (r) => {
+          for (let c = c1; c <= c2; c += 1) setEdge(s, r, c, "bt", on);
+        };
+        const vertical = (c) => {
+          for (let r = r1; r <= r2; r += 1) setEdge(s, r, c, "bl", on);
+        };
+        if (mode === "all" || mode === "none") {
+          for (let r = r1; r <= r2 + 1; r += 1) horizontal(r);
+          for (let c = c1; c <= c2 + 1; c += 1) vertical(c);
+        } else if (mode === "outer") {
+          horizontal(r1);
+          horizontal(r2 + 1);
+          vertical(c1);
+          vertical(c2 + 1);
+        } else if (mode === "inner") {
+          for (let r = r1 + 1; r <= r2; r += 1) horizontal(r);
+          for (let c = c1 + 1; c <= c2; c += 1) vertical(c);
+        } else if (mode === "top") {
+          horizontal(r1);
+        } else if (mode === "bottom") {
+          horizontal(r2 + 1);
+        } else if (mode === "left") {
+          vertical(c1);
+        } else if (mode === "right") {
+          vertical(c2 + 1);
+        }
+      });
+    }
+
+    function toggleView(flag) {
+      if (editing) commitEdit(null);
+      mutate((s) => {
+        if (flag === "both") {
+          const hidden = s.noGrid && s.noHeads;
+          if (hidden) {
+            delete s.noGrid;
+            delete s.noHeads;
+          } else {
+            s.noGrid = 1;
+            s.noHeads = 1;
+          }
+          return;
+        }
+        if (s[flag]) delete s[flag];
+        else s[flag] = 1;
+      });
     }
 
     function clearSelection() {
@@ -3186,39 +3314,47 @@
     /* Exportar */
     function exportCsv() {
       if (editing) commitEdit(null);
-      const sheet = current();
       const ev = createEvaluator(model);
-      let maxR = -1;
-      let maxC = -1;
-      Object.keys(sheet.cells).forEach((key) => {
-        const [r, c] = key.split(":").map(Number);
-        if (!hasValue(sheet, r, c)) return;
-        maxR = Math.max(maxR, r);
-        maxC = Math.max(maxC, c);
+      const blocks = [];
+      let filled = 0;
+      model.sheets.forEach((sheet) => {
+        let maxR = -1;
+        let maxC = -1;
+        Object.keys(sheet.cells).forEach((key) => {
+          const [r, c] = key.split(":").map(Number);
+          if (!hasValue(sheet, r, c)) return;
+          maxR = Math.max(maxR, r);
+          maxC = Math.max(maxC, c);
+        });
+        const lines = [`${SHEET_MARK} ${sheet.name}`];
+        if (maxR >= 0) filled += 1;
+        for (let r = 0; r <= maxR; r += 1) {
+          const cells = [];
+          for (let c = 0; c <= maxC; c += 1) {
+            const data = sheet.cells[cellKey(r, c)];
+            cells.push(data ? csvField(ev.cell(sheet, r, c), data) : "");
+          }
+          lines.push(cells.join(";"));
+        }
+        blocks.push(lines.join("\r\n"));
       });
-      if (maxR < 0) {
-        toast("Esta hoja está vacía.", "error");
+      if (!filled) {
+        toast("Todavía no hay nada que descargar: tus hojas están vacías.", "error");
         return;
       }
-      const lines = [];
-      for (let r = 0; r <= maxR; r += 1) {
-        const cells = [];
-        for (let c = 0; c <= maxC; c += 1) {
-          const data = sheet.cells[cellKey(r, c)];
-          cells.push(data ? csvField(ev.cell(sheet, r, c), data) : "");
-        }
-        lines.push(cells.join(";"));
-      }
-      const blob = new Blob([`\ufeff${lines.join("\r\n")}`], { type: "text/csv;charset=utf-8" });
+      const blob = new Blob([`\ufeff${blocks.join("\r\n\r\n")}`], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${sheet.name.replace(/[\\/:*?"<>|]/g, "").trim() || "hoja"}.csv`;
+      link.download = `${EXPORT_NAME}.csv`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      toast("Descargamos la hoja. Puedes abrirla con Excel o Google Sheets.");
+      const count = model.sheets.length;
+      toast(count === 1
+        ? `Descargamos «${EXPORT_NAME}.csv». Puedes abrirlo con Excel o Google Sheets.`
+        : `Descargamos «${EXPORT_NAME}.csv» con tus ${count} hojas. Al volver a cargarlo se separan solas.`);
     }
 
     function readFileText(file, done) {
@@ -3232,6 +3368,30 @@
         if (text.includes("\ufffd")) read("windows-1252", done);
         else done(text);
       });
+    }
+
+    function splitSections(grid, fallbackName) {
+      const marks = [];
+      grid.forEach((row, i) => {
+        const first = String(row[0] == null ? "" : row[0]).trim();
+        if (first.startsWith(SHEET_MARK) && row.slice(1).every((value) => value === "")) marks.push(i);
+      });
+      const blank = (row) => row.every((value) => value === "");
+      const trim = (rows) => {
+        const out = rows.slice();
+        while (out.length && blank(out[out.length - 1])) out.pop();
+        return out;
+      };
+      if (!marks.length) return [{ name: fallbackName, grid: trim(grid) }];
+      const sections = [];
+      const lead = trim(grid.slice(0, marks[0]));
+      if (lead.length) sections.push({ name: fallbackName, grid: lead });
+      marks.forEach((start, i) => {
+        const stop = i + 1 < marks.length ? marks[i + 1] : grid.length;
+        const label = String(grid[start][0]).trim().slice(SHEET_MARK.length).trim();
+        sections.push({ name: label || fallbackName, grid: trim(grid.slice(start + 1, stop)) });
+      });
+      return sections;
     }
 
     function importCsv(file) {
@@ -3248,42 +3408,51 @@
           toast("Ese archivo no tiene datos.", "error");
           return;
         }
-        const width = Math.max(...grid.map((row) => row.length));
-        const rows = Math.min(grid.length, MAX_ROWS);
-        const cols = Math.min(width, MAX_COLS);
-        const name = uniqueName(
-          cleanSheetName(file.name.replace(/\.[^.]+$/, "")) || "CSV",
-          model.sheets.map((s) => s.name)
-        );
+        const fallback = cleanSheetName(file.name.replace(/\.[^.]+$/, "")) || "CSV";
+        const sections = splitSections(grid, fallback);
+        if (sections.length > 40) sections.length = 40;
         selBySheet.set(model.active, { ...sel });
+        const created = [];
+        let cut = false;
         mutate(() => {
-          const sheet = blankSheet(name);
-          sheet.rows = clamp(Math.max(DEFAULT_ROWS, rows + 5), 1, MAX_ROWS);
-          sheet.cols = clamp(Math.max(DEFAULT_COLS, cols + 1), 1, MAX_COLS);
-          const widest = [];
-          for (let r = 0; r < rows; r += 1) {
-            for (let c = 0; c < cols; c += 1) {
-              const value = String(grid[r][c] == null ? "" : grid[r][c]).replace(/\n/g, " ");
-              if (!value) continue;
-              writeRaw(sheet, r, c, value);
-              widest[c] = Math.max(widest[c] || 0, textWidth(value));
+          sections.forEach((section) => {
+            const rows = Math.min(section.grid.length, MAX_ROWS);
+            const width = Math.max(1, ...section.grid.map((row) => row.length));
+            const cols = Math.min(width, MAX_COLS);
+            if (section.grid.length > MAX_ROWS || width > MAX_COLS) cut = true;
+            const name = uniqueName(section.name, model.sheets.map((sheet) => sheet.name));
+            const sheet = blankSheet(name);
+            sheet.rows = clamp(Math.max(DEFAULT_ROWS, rows + 5), 1, MAX_ROWS);
+            sheet.cols = clamp(Math.max(DEFAULT_COLS, cols + 1), 1, MAX_COLS);
+            const widest = [];
+            for (let r = 0; r < rows; r += 1) {
+              for (let c = 0; c < cols; c += 1) {
+                const value = String(section.grid[r][c] == null ? "" : section.grid[r][c]).replace(/\n/g, " ");
+                if (!value) continue;
+                writeRaw(sheet, r, c, value);
+                widest[c] = Math.max(widest[c] || 0, textWidth(value));
+              }
             }
-          }
-          widest.forEach((w, c) => {
-            const fit = clamp(Math.ceil(w + 26), MIN_WIDTH, MAX_WIDTH);
-            if (fit > DEFAULT_WIDTH) sheet.widths[c] = Math.min(fit, 320);
+            widest.forEach((w, c) => {
+              const fit = clamp(Math.ceil(w + 26), MIN_WIDTH, MAX_WIDTH);
+              if (fit > DEFAULT_WIDTH) sheet.widths[c] = Math.min(fit, 320);
+            });
+            model.sheets.push(sheet);
+            created.push(sheet);
           });
-          model.sheets.push(sheet);
-          model.active = sheet.id;
+          model.active = created[0].id;
         });
         sel = { r: 0, c: 0, r2: 0, c2: 0 };
         viewport.scrollTop = 0;
         viewport.scrollLeft = 0;
         paintSelection();
-        const cut = grid.length > MAX_ROWS || width > MAX_COLS;
-        toast(cut
-          ? `Cargamos «${name}», pero solo caben ${MAX_ROWS} filas y ${MAX_COLS} columnas.`
-          : `Cargamos «${name}» en una hoja nueva.`);
+        if (created.length > 1) {
+          toast(`Cargamos ${created.length} hojas del archivo.`);
+        } else {
+          toast(cut
+            ? `Cargamos «${created[0].name}», pero solo caben ${MAX_ROWS} filas y ${MAX_COLS} columnas.`
+            : `Cargamos «${created[0].name}» en una hoja nueva.`);
+        }
       });
     }
 
@@ -3370,6 +3539,42 @@
         active: (data.f || "") === fmt.id,
         run: () => setFormat(fmt.id)
       })), { anchor });
+    }
+
+    function openFontMenu(anchor) {
+      if (editing) commitEdit(null);
+      const data = current().cells[cellKey(sel.r, sel.c)] || {};
+      const items = [{ label: "Automático", hint: "13,5", active: !data.fs, run: () => setFontSize(0) }];
+      FONT_SIZES.forEach((size) => items.push({ label: String(size), active: data.fs === size, run: () => setFontSize(size) }));
+      openMenu(items, { anchor });
+    }
+
+    function openBordersMenu(anchor) {
+      if (editing) commitEdit(null);
+      const multi = !isSingle();
+      openMenu([
+        { label: "Todos los bordes", run: () => setBorders("all") },
+        { label: "Borde exterior", run: () => setBorders("outer") },
+        { label: "Bordes interiores", disabled: !multi, run: () => setBorders("inner") },
+        "sep",
+        { label: "Borde de arriba", run: () => setBorders("top") },
+        { label: "Borde de abajo", run: () => setBorders("bottom") },
+        { label: "Borde izquierdo", run: () => setBorders("left") },
+        { label: "Borde derecho", run: () => setBorders("right") },
+        "sep",
+        { label: "Quitar bordes", run: () => setBorders("none") }
+      ], { anchor });
+    }
+
+    function openViewMenu(anchor) {
+      if (editing) commitEdit(null);
+      const sheet = current();
+      openMenu([
+        { label: "Líneas de la cuadrícula", hint: sheet.noGrid ? "Ocultas" : "Visibles", active: !sheet.noGrid, run: () => toggleView("noGrid") },
+        { label: "Encabezados (A, B, 1, 2…)", hint: sheet.noHeads ? "Ocultos" : "Visibles", active: !sheet.noHeads, run: () => toggleView("noHeads") },
+        "sep",
+        { label: sheet.noGrid && sheet.noHeads ? "Volver a mostrar todo" : "Fondo limpio (sin líneas ni encabezados)", run: () => toggleView("both") }
+      ], { anchor });
     }
 
     function openFillMenu(anchor) {
