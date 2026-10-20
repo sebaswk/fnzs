@@ -1,0 +1,110 @@
+.calc-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: start;
+}
+
+.calc-side {
+  display: grid;
+  gap: var(--gap);
+  min-width: 0;
+}
+
+.calc-side.is-sticky {
+  position: sticky;
+  top: calc(var(--topbar-h) + 16px);
+}
+
+.calc-results {
+  display: grid;
+  gap: var(--gap);
+  min-width: 0;
+}
+
+.form-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.form-grid .tabs {
+  margin-bottom: 2px;
+}
+
+.card-title {
+  margin-bottom: 16px;
+}
+
+.card-title h2 {
+  font-size: 1.05rem;
+}
+
+.card-title p {
+  margin-top: 3px;
+  font-size: 13.5px;
+}
+
+.chart-card .list-head {
+  margin-bottom: 14px;
+}
+
+.results-tabs {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.results-tabs p {
+  font-size: 13.5px;
+}
+
+.table-scroll {
+  max-height: 560px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+}
+
+.table-scroll table {
+  min-width: 760px;
+}
+
+.table-scroll th:first-child,
+.table-scroll td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bg-elev);
+}
+
+.table-scroll th:first-child {
+  z-index: 2;
+  background: var(--surface-2);
+}
+
+.table-scroll tbody tr:hover td:first-child {
+  background: #15181c;
+}
+
+.table-note {
+  margin-bottom: 12px;
+  font-size: 13.5px;
+}
+
+@media (max-width: 1000px) {
+  .calc-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .calc-side.is-sticky {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .table-scroll {
+    max-height: 480px;
+  }
+}

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0b0d">
+  <meta name="description" content="Calculadora de 4x1000: cuánto te cobra el banco por cada retiro, transferencia o pago, y cuánto pagas al mes y al año.">
+  <title>Calculadora de 4x1000 — Norte</title>
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/calc.css">
+  <link rel="stylesheet" href="gmf.css">
+</head>
+<body>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="../../index.html" aria-label="Norte, inicio">
+        <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2.8 6.6 14.2h10.8L12 2.8Z" fill="#3fd49a"/><path d="M12 14.2v6.6" stroke="#74e6b9" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+        <span class="brand-name">Norte</span>
+      </a>
+      <nav class="nav" aria-label="Secciones">
+        <a class="nav-link" href="../../index.html">Inicio</a>
+        <a class="nav-link" href="../finanzas-personales/index.html">Flujo personal</a>
+        <div class="nav-group">
+          <button class="nav-link nav-trigger is-active" type="button" aria-expanded="false" aria-haspopup="true">
+            Calculadoras
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+          </button>
+          <div class="nav-menu">
+            <a class="nav-item" href="../interes-compuesto/index.html">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span>
+              <span><strong>Interés compuesto</strong><small>Cuánto puede crecer tu dinero</small></span>
+            </a>
+            <a class="nav-item" href="../creditos/index.html">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18"/><path d="M7 15h4"/></svg></span>
+              <span><strong>Créditos</strong><small>Cuota, intereses y abonos a capital</small></span>
+            </a>
+            <a class="nav-item is-active" href="./index.html" aria-current="page">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></svg></span>
+              <span><strong>4x1000</strong><small>Lo que te cobra el banco al mover dinero</small></span>
+            </a>
+          </div>
+        </div>
+        <a class="nav-link" href="../pymes/index.html" data-feature="pymes" hidden>Pymes</a>
+      </nav>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost btn-sm" type="button" id="btn-cargar" title="Cargar datos guardados">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>
+          <span>Cargar<span class="hide-sm"> datos</span></span>
+        </button>
+        <button class="btn btn-primary btn-sm" type="button" id="btn-guardar" title="Descargar un archivo con tus datos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+          <span>Guardar<span class="hide-sm"> datos</span></span>
+        </button>
+        <input class="hidden-file" id="file-input" type="file" accept="application/json,.json">
+      </div>
+      <button class="nav-toggle" type="button" aria-label="Abrir menú" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="contenido" class="page">
+    <div class="page-head">
+      <div>
+        <p class="eyebrow">Calculadoras</p>
+        <h1>Calculadora de 4x1000</h1>
+        <p class="lede">Por cada $1.000 que sale de tu cuenta, el banco cobra $4 de impuesto. Escribe un valor y mira cuánto te descuentan, cuánto puedes sacar de tu saldo y cuánto pagas al mes y al año.</p>
+      </div>
+    </div>
+
+    <div class="calc-layout">
+      <aside class="calc-side">
+        <section class="card card-pad">
+          <div class="card-title">
+            <h2>Tu movimiento</h2>
+            <p>Un retiro, una transferencia o un pago desde tu cuenta.</p>
+          </div>
+          <form class="form-grid" id="move-form">
+            <div class="field">
+              <label for="amount">Valor</label>
+              <div class="input-suffix">
+                <input id="amount" type="number" min="0" step="any" inputmode="decimal">
+                <em>COP</em>
+              </div>
+            </div>
+            <div class="field">
+              <span class="field-label">Ese valor es</span>
+              <div class="tabs tabs-block" role="tablist" aria-label="Qué representa el valor">
+                <button type="button" id="base-send" class="is-active">Lo que vas a enviar</button>
+                <button type="button" id="base-balance">Todo tu saldo</button>
+              </div>
+              <span class="hint" id="base-hint">El impuesto se cobra aparte, encima de lo que envías.</span>
+            </div>
+          </form>
+        </section>
+
+        <section class="card card-pad">
+          <div class="card-title">
+            <h2>Tu mes</h2>
+            <p>Para saber cuánto se va en 4x1000 cada mes y en el año.</p>
+          </div>
+          <form class="form-grid" id="month-form">
+            <div class="field">
+              <label for="monthly">Lo que sale de tus cuentas al mes</label>
+              <div class="input-suffix">
+                <input id="monthly" type="number" min="0" step="any" inputmode="decimal">
+                <em>COP</em>
+              </div>
+              <span class="hint">Suma retiros, transferencias y pagos con tarjeta débito.</span>
+            </div>
+            <div class="field">
+              <span class="field-label">Cuenta exenta</span>
+              <div class="tabs tabs-block" role="tablist" aria-label="Cuenta exenta">
+                <button type="button" id="exempt-no" class="is-active">No la tengo</button>
+                <button type="button" id="exempt-yes">Sí, la tengo</button>
+              </div>
+              <span class="hint" id="exempt-hint">Puedes marcar una sola cuenta de ahorros como exenta en tu banco.</span>
+            </div>
+            <div class="field" id="cap-field" hidden>
+              <label for="cap">Tope exento al mes</label>
+              <div class="input-suffix">
+                <input id="cap" type="number" min="0" step="any" inputmode="decimal">
+                <em>COP</em>
+              </div>
+              <span class="hint">Son 350 UVT. Si el tope de este año es otro, cámbialo aquí.</span>
+            </div>
+          </form>
+        </section>
+      </aside>
+
+      <section class="calc-results">
+        <div class="results-tabs">
+          <div class="tabs gmf-tabs" role="tablist" aria-label="Vistas del 4x1000">
+            <button type="button" data-tab="recopilado" class="is-active">Resumen</button>
+            <button type="button" data-tab="tabla">Tabla rápida</button>
+          </div>
+          <p id="tab-desc">Lo que pagas por tu movimiento, en el mes y en el año.</p>
+        </div>
+
+        <div class="panel" id="panel-recopilado">
+          <div class="metrics cols-3" id="metrics"></div>
+          <article class="card card-pad chart-card">
+            <div class="list-head">
+              <div>
+                <h2 id="move-title">A dónde va tu dinero</h2>
+                <p id="move-desc">Lo que envías y lo que se queda el impuesto.</p>
+              </div>
+            </div>
+            <div class="chart" id="move-chart" aria-label="Movimiento e impuesto"></div>
+          </article>
+          <article class="card card-pad chart-card">
+            <div class="list-head">
+              <div>
+                <h2>Lo que pagas en el año</h2>
+                <p>El 4x1000 que llevas pagado mes a mes, con y sin cuenta exenta.</p>
+              </div>
+            </div>
+            <div class="chart" id="year-chart" aria-label="4x1000 acumulado en el año"></div>
+          </article>
+          <article class="card card-pad gmf-facts">
+            <h2>Bueno saber</h2>
+            <ul>
+              <li>El impuesto es el 0,4% de cada retiro, transferencia o pago que sale de tu cuenta.</li>
+              <li>Pasar plata entre tus propias cuentas del mismo banco no paga 4x1000.</li>
+              <li>Solo puedes tener una cuenta exenta. Lo que sale de ella paga 4x1000 cuando pasa el tope del mes.</li>
+              <li>La mitad del 4x1000 que pagas en el año es deducible en la declaración de renta, con el certificado del banco.</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="panel" id="panel-tabla" hidden>
+          <article class="card card-pad">
+            <p class="table-note">Valores comunes para consultar de un vistazo, sin cuenta exenta.</p>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Valor</th>
+                    <th>4x1000</th>
+                    <th>Te descuentan</th>
+                    <th>Si es tu saldo, puedes sacar</th>
+                  </tr>
+                </thead>
+                <tbody id="quick-body"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="../../assets/js/norte.js"></script>
+  <script src="../../assets/js/charts.js"></script>
+  <script src="gmf.js"></script>
+</body>
+</html>

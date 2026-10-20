@@ -3,92 +3,146 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#08090b">
+  <meta name="theme-color" content="#0a0b0d">
   <meta name="description" content="Norte: finanzas fáciles en el navegador. Rápida, ligera y sin guardar tu información en la nube. Tú decides cuándo descargar tus datos.">
   <title>Norte — claridad para tu dinero</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/base.css">
   <link rel="stylesheet" href="assets/css/home.css">
 </head>
 <body>
   <a class="skip" href="#contenido">Saltar al contenido</a>
   <header class="topbar">
-    <a class="brand" href="./index.html">
-      <svg viewBox="0 0 32 32" aria-hidden="true">
-        <path d="M16 5.5v21" stroke="#d4c4a0" stroke-width="1.4" stroke-linecap="round"/>
-        <path d="M16 5.5 11.2 13.2h9.6L16 5.5Z" fill="#d4c4a0"/>
-        <circle cx="16" cy="16.8" r="2.1" stroke="#9cbaa4" stroke-width="1.2"/>
-      </svg>
-      Norte
-    </a>
-    <nav class="nav" aria-label="Secciones">
-      <a href="./index.html" class="is-active">Inicio</a>
-      <a href="features/finanzas-personales/index.html">Flujo personal</a>
-      <a href="features/inversiones/index.html">Inversiones</a>
-      <a href="features/creditos/index.html">Créditos</a>
-      <a href="features/pymes/index.html">Pymes</a>
-    </nav>
+    <div class="topbar-inner">
+      <a class="brand" href="./index.html" aria-label="Norte, inicio">
+        <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2.8 6.6 14.2h10.8L12 2.8Z" fill="#3fd49a"/><path d="M12 14.2v6.6" stroke="#74e6b9" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+        <span class="brand-name">Norte</span>
+      </a>
+      <nav class="nav" aria-label="Secciones">
+        <a class="nav-link is-active" href="./index.html" aria-current="page">Inicio</a>
+        <a class="nav-link" href="features/finanzas-personales/index.html">Flujo personal</a>
+        <div class="nav-group">
+          <button class="nav-link nav-trigger" type="button" aria-expanded="false" aria-haspopup="true">
+            Calculadoras
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+          </button>
+          <div class="nav-menu">
+            <a class="nav-item" href="features/interes-compuesto/index.html">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span>
+              <span><strong>Interés compuesto</strong><small>Cuánto puede crecer tu dinero</small></span>
+            </a>
+            <a class="nav-item" href="features/creditos/index.html">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18"/><path d="M7 15h4"/></svg></span>
+              <span><strong>Créditos</strong><small>Cuota, intereses y abonos a capital</small></span>
+            </a>
+            <a class="nav-item" href="features/4x1000/index.html">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></svg></span>
+              <span><strong>4x1000</strong><small>Lo que te cobra el banco al mover dinero</small></span>
+            </a>
+          </div>
+        </div>
+        <a class="nav-link" href="features/pymes/index.html" data-feature="pymes" hidden>Pymes</a>
+      </nav>
+      <button class="nav-toggle" type="button" aria-label="Abrir menú" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
   </header>
 
   <main id="contenido" class="page home">
     <section class="hero">
-      <p class="kicker"><span></span> Rápida y ligera</p>
-      <div class="hero-copy">
-        <h1>Claridad para tu dinero.</h1>
-        <p class="lede">Norte no guarda tu información. Es rápida, pesa poco y se abre en cualquier navegador. Cuando quieras conservar un cálculo, descargas un archivo y lo vuelves a cargar después.</p>
+      <p class="hero-pill"><span></span>Sin registro · tus datos se quedan contigo</p>
+      <h1>Claridad para tu dinero.</h1>
+      <p class="lede">Organiza tus finanzas y haz cuentas rápidas desde el navegador. Norte no guarda tu información: cuando quieras conservarla, descargas un archivo y lo cargas de nuevo después.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary btn-lg" href="features/finanzas-personales/index.html">Empezar con Flujo personal</a>
+        <a class="btn btn-lg" href="#calculadoras">Ver calculadoras</a>
+      </div>
+      <ul class="hero-points">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Nada se sube a internet</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg>Rápida y liviana</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg>Funciona en el celular</li>
+      </ul>
+    </section>
+
+    <section class="tools" aria-label="Herramientas">
+      <a class="card tool-card tool-main" href="features/finanzas-personales/index.html">
+        <div class="tool-top">
+          <span class="tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M6 17V10"/><path d="M11 17V6"/><path d="M16 17v-4"/><path d="M21 17V8"/></svg></span>
+          <span class="tool-tag">Lo más completo</span>
+        </div>
+        <h2>Flujo personal</h2>
+        <p>Tu año completo en un solo lugar: lo que tienes en cada banco, lo que entra y sale cada mes, tus ahorros y tus inversiones.</p>
+        <ul class="tool-list">
+          <li>Movimientos de cada mes por banco: ingresos, gastos, deudas y 4x1000</li>
+          <li>Ahorros e inversiones que pasan de un año a otro</li>
+          <li>Tesorería: una hoja de cálculo para planear</li>
+        </ul>
+        <div class="tool-preview" aria-hidden="true">
+          <span style="--h: 46%"></span><span style="--h: 62%"></span><span style="--h: 38%"></span><span style="--h: 74%"></span><span style="--h: 58%"></span><span style="--h: 86%"></span><span style="--h: 66%"></span><span style="--h: 92%"></span>
+        </div>
+        <span class="tool-go">Abrir Flujo personal <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></span>
+      </a>
+
+      <div class="tool-group" id="calculadoras">
+        <div class="tool-group-head">
+          <h2>Calculadoras</h2>
+          <p>Cuentas rápidas para decidir mejor.</p>
+        </div>
+        <a class="card tool-card" href="features/interes-compuesto/index.html">
+          <span class="tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span>
+          <div>
+            <h3>Interés compuesto</h3>
+            <p>Cuánto puede crecer tu dinero en dólares o pesos, y cuánto vale en dinero de hoy.</p>
+          </div>
+          <svg class="tool-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+        </a>
+        <a class="card tool-card" href="features/creditos/index.html">
+          <span class="tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18"/><path d="M7 15h4"/></svg></span>
+          <div>
+            <h3>Créditos</h3>
+            <p>Tu cuota real con seguros y cuánto ahorras si haces abonos a capital.</p>
+          </div>
+          <svg class="tool-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+        </a>
+        <a class="card tool-card" href="features/4x1000/index.html">
+          <span class="tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></svg></span>
+          <div>
+            <h3>Calculadora de 4x1000</h3>
+            <p>Cuánto te cobra el banco por cada retiro o transferencia, y cuánto pagas al mes y al año.</p>
+          </div>
+          <svg class="tool-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+        </a>
+        <a class="card tool-card" href="features/pymes/index.html" data-feature="pymes" hidden>
+          <span class="tool-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9h18l-1.5-5h-15L3 9Z"/><path d="M5 9v11h14V9"/><path d="M10 20v-6h4v6"/></svg></span>
+          <div>
+            <h3>Pymes</h3>
+            <p>Productos, ventas por mes y la ganancia real de tu negocio.</p>
+          </div>
+          <svg class="tool-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+        </a>
       </div>
     </section>
 
-    <section class="catalog" aria-label="Features disponibles">
-      <a class="card feature-card flow" href="features/finanzas-personales/index.html">
-        <div>
-          <div class="index">01 · Caja</div>
-          <h2>Flujo personal</h2>
-          <p>Patrimonio y bancos, flujo mensual, ahorros con concepto e inversiones por producto que se arrastran año a año.</p>
-        </div>
-        <span class="go">Abrir sección →</span>
-        <div class="orb" aria-hidden="true"></div>
-      </a>
-
-      <a class="card feature-card growth" href="features/inversiones/index.html">
-        <div>
-          <div class="index">02 · Crecimiento</div>
-          <h2>Inversiones</h2>
-          <p>Interés compuesto en dólares y pesos, con inflación y poder adquisitivo en dinero de hoy.</p>
-        </div>
-        <span class="go">Abrir sección →</span>
-        <div class="orb" aria-hidden="true"></div>
-      </a>
-
-      <a class="card feature-card credit" href="features/creditos/index.html">
-        <div>
-          <div class="index">03 · Deuda</div>
-          <h2>Créditos</h2>
-          <p>Cuota, seguros y qué pasa si haces abonos a capital: menos cuota o menos tiempo.</p>
-        </div>
-        <span class="go">Abrir sección →</span>
-        <div class="orb" aria-hidden="true"></div>
-      </a>
-
-      <a class="card feature-card pyme" href="features/pymes/index.html">
-        <div>
-          <div class="index">04 · Negocio</div>
-          <h2>Pymes</h2>
-          <p>Productos y ventas por mes, ganancia bruta y neta, y una factura del año para decidir con calma.</p>
-        </div>
-        <span class="go">Abrir sección →</span>
-        <div class="orb" aria-hidden="true"></div>
-      </a>
+    <section class="how" aria-label="Cómo funciona">
+      <h2>Cómo guardar tu información</h2>
+      <ol class="how-steps">
+        <li><span>1</span><div><strong>Anota o calcula</strong><p>Todo funciona en tu navegador, sin crear cuenta.</p></div></li>
+        <li><span>2</span><div><strong>Pulsa «Guardar datos»</strong><p>Se descarga un archivo pequeño con tu información.</p></div></li>
+        <li><span>3</span><div><strong>Vuelve cuando quieras</strong><p>Con «Cargar datos» eliges ese archivo y sigues donde quedaste.</p></div></li>
+      </ol>
     </section>
-
-    <footer class="home-foot">
-      <p>Tus cifras viajan en un archivo que generas tú.</p>
-      <p>Finanzas fáciles.</p>
-    </footer>
   </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>Norte · Finanzas fáciles</span>
+      <span>Tus cifras viajan en un archivo que generas tú.</span>
+    </div>
+  </footer>
   <script src="assets/js/norte.js"></script>
 </body>
 </html>

@@ -1,0 +1,23 @@
+.calc-form {
+  margin-top: 18px;
+}
+
+.field-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+#inflation-presets {
+  margin-bottom: 2px;
+}
+
+.calc-results .table-scroll table {
+  min-width: 640px;
+}
+
+@media (max-width: 380px) {
+  .field-pair {
+    grid-template-columns: 1fr;
+  }
+}

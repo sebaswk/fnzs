@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0b0d">
+  <meta name="description" content="Calculadora de interés compuesto en dólares y pesos colombianos, con inflación y valor en dinero de hoy.">
+  <title>Interés compuesto — Norte</title>
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/calc.css">
+  <link rel="stylesheet" href="interes.css">
+</head>
+<body>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="../../index.html" aria-label="Norte, inicio">
+        <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2.8 6.6 14.2h10.8L12 2.8Z" fill="#3fd49a"/><path d="M12 14.2v6.6" stroke="#74e6b9" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+        <span class="brand-name">Norte</span>
+      </a>
+      <nav class="nav" aria-label="Secciones">
+        <a class="nav-link" href="../../index.html">Inicio</a>
+        <a class="nav-link" href="../finanzas-personales/index.html">Flujo personal</a>
+        <div class="nav-group">
+          <button class="nav-link nav-trigger is-active" type="button" aria-expanded="false" aria-haspopup="true">
+            Calculadoras
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+          </button>
+          <div class="nav-menu">
+            <a class="nav-item is-active" href="./index.html" aria-current="page">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span>
+              <span><strong>Interés compuesto</strong><small>Cuánto puede crecer tu dinero</small></span>
+            </a>
+            <a class="nav-item" href="../creditos/index.html">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18"/><path d="M7 15h4"/></svg></span>
+              <span><strong>Créditos</strong><small>Cuota, intereses y abonos a capital</small></span>
+            </a>
+            <a class="nav-item" href="../4x1000/index.html">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></svg></span>
+              <span><strong>4x1000</strong><small>Lo que te cobra el banco al mover dinero</small></span>
+            </a>
+          </div>
+        </div>
+        <a class="nav-link" href="../pymes/index.html" data-feature="pymes" hidden>Pymes</a>
+      </nav>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost btn-sm" type="button" id="btn-cargar" title="Cargar datos guardados">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>
+          <span>Cargar<span class="hide-sm"> datos</span></span>
+        </button>
+        <button class="btn btn-primary btn-sm" type="button" id="btn-guardar" title="Descargar un archivo con tus datos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+          <span>Guardar<span class="hide-sm"> datos</span></span>
+        </button>
+        <input class="hidden-file" id="file-input" type="file" accept="application/json,.json">
+      </div>
+      <button class="nav-toggle" type="button" aria-label="Abrir menú" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="contenido" class="page">
+    <div class="page-head">
+      <div>
+        <p class="eyebrow">Calculadoras</p>
+        <h1>Interés compuesto</h1>
+        <p class="lede">Mira cuánto puede crecer tu dinero si lo dejas trabajar y sigues aportando cada mes, y cuánto valdría en dinero de hoy.</p>
+      </div>
+    </div>
+
+    <div class="calc-layout">
+      <aside class="calc-side is-sticky">
+        <section class="card card-pad">
+          <div class="card-title">
+            <h2>Tus datos</h2>
+            <p>Cambia cualquier valor y los resultados se actualizan al instante.</p>
+          </div>
+          <div class="tabs tabs-block" role="tablist" aria-label="Moneda">
+            <button type="button" role="tab" id="tab-usd" aria-selected="true" class="is-active">Dólares (USD)</button>
+            <button type="button" role="tab" id="tab-cop" aria-selected="false">Pesos (COP)</button>
+          </div>
+
+          <form class="form-grid calc-form" id="calc-form">
+            <div class="field">
+              <label for="principal">Con cuánto empiezas</label>
+              <div class="input-suffix">
+                <input id="principal" name="principal" type="number" min="0" step="any" inputmode="decimal" required>
+                <em id="principal-suffix">USD</em>
+              </div>
+            </div>
+            <div class="field">
+              <label for="monthly">Cuánto aportas cada mes</label>
+              <div class="input-suffix">
+                <input id="monthly" name="monthly" type="number" min="0" step="any" inputmode="decimal">
+                <em id="monthly-suffix">USD</em>
+              </div>
+            </div>
+            <div class="field-pair">
+              <div class="field">
+                <label for="rate">Rentabilidad anual</label>
+                <div class="input-suffix">
+                  <input id="rate" name="rate" type="number" min="0" max="100" step="0.01" inputmode="decimal" required>
+                  <em>%</em>
+                </div>
+              </div>
+              <div class="field">
+                <label for="years">Durante</label>
+                <div class="input-suffix">
+                  <input id="years" name="years" type="number" min="1" max="50" step="1" inputmode="numeric" required>
+                  <em>años</em>
+                </div>
+              </div>
+            </div>
+            <div class="field">
+              <label for="inflation">Inflación anual esperada</label>
+              <div class="chip-row" id="inflation-presets" aria-label="Valores sugeridos de inflación"></div>
+              <div class="input-suffix">
+                <input id="inflation" name="inflation" type="number" min="0" max="80" step="0.01" inputmode="decimal">
+                <em>%</em>
+              </div>
+              <span class="hint" id="inflation-hint">Usa un valor sugerido o escribe el tuyo.</span>
+            </div>
+          </form>
+
+          <details class="note">
+            <summary>¿Cómo se calcula?</summary>
+            <ul>
+              <li>Los intereses se suman a tu dinero cada mes, y el mes siguiente también generan intereses.</li>
+              <li>Tus aportes entran al final de cada mes.</li>
+              <li>«En dinero de hoy» muestra lo que podrías comprar con ese dinero, descontando la inflación.</li>
+              <li>Los valores de inflación sugeridos son referencias de largo plazo, no datos en vivo.</li>
+            </ul>
+          </details>
+        </section>
+      </aside>
+
+      <section class="calc-results">
+        <div class="metrics cols-3" id="metrics"></div>
+
+        <article class="card card-pad chart-card">
+          <div class="list-head">
+            <div>
+              <h2>Cómo crece tu dinero</h2>
+              <p id="chart-caption">Lo que aportas y lo que ganas en intereses, año por año.</p>
+            </div>
+          </div>
+          <div class="chart" id="chart" aria-label="Gráfica de crecimiento por año"></div>
+        </article>
+
+        <article class="card card-pad">
+          <div class="list-head">
+            <div>
+              <h2>Año a año</h2>
+              <p>Cómo queda tu dinero al cierre de cada año.</p>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Año</th>
+                  <th>Lo que aportaste</th>
+                  <th>Intereses ganados</th>
+                  <th>Valor total</th>
+                  <th>En dinero de hoy</th>
+                </tr>
+              </thead>
+              <tbody id="year-body"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+    </div>
+  </main>
+
+  <script src="../../assets/js/norte.js"></script>
+  <script src="../../assets/js/charts.js"></script>
+  <script src="interes.js"></script>
+</body>
+</html>

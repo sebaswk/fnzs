@@ -30,6 +30,16 @@
     return Norte.formatMoney(value, CURRENCY);
   }
 
+  function duration(months) {
+    const total = Math.max(0, Math.round(months));
+    const years = Math.floor(total / 12);
+    const rest = total % 12;
+    const y = years ? `${years} ${years === 1 ? "año" : "años"}` : "";
+    const m = rest ? `${rest} ${rest === 1 ? "mes" : "meses"}` : "";
+    if (y && m) return `${y} y ${m}`;
+    return y || m || "0 meses";
+  }
+
   function totalMonths() {
     const value = Math.max(1, Math.round(state.termValue || 1));
     return state.termUnit === "months" ? value : value * 12;
@@ -94,8 +104,8 @@
     const locked = state.actualPayment > 0;
     fields.rate.readOnly = locked;
     document.getElementById("rate-hint").textContent = locked
-      ? "Ajustada a la cuota + seguros que pusiste."
-      : "Si no pones la cuota real, puedes escribir la tasa a mano.";
+      ? "Calculada con lo que pagas cada mes. Borra ese valor si prefieres escribir la tasa."
+      : "Si no sabes tu pago mensual, escribe aquí la tasa.";
     document.getElementById("unit-months").classList.toggle("is-active", state.termUnit === "months");
     document.getElementById("unit-years").classList.toggle("is-active", state.termUnit === "years");
     document.getElementById("mode-plazo").classList.toggle("is-active", state.mode === "plazo");
@@ -145,9 +155,9 @@
     return { base, rate, rows };
   }
 
-  function metric(label, value, sub, extraClass) {
+  function metric(label, value, sub, extraClass, hero) {
     const article = document.createElement("article");
-    article.className = "metric";
+    article.className = `metric${hero ? " is-hero" : ""}`;
     const k = document.createElement("div");
     k.className = "label";
     k.textContent = label;
@@ -168,12 +178,6 @@
     return rows.reduce((acc, row) => acc + row[key], 0);
   }
 
-  function sample(rows) {
-    if (rows.length <= 80) return rows;
-    const step = Math.ceil(rows.length / 80);
-    return rows.filter((row, index) => index % step === 0 || index === rows.length - 1);
-  }
-
   function cell(text, cls) {
     const td = document.createElement("td");
     td.textContent = text;
@@ -185,8 +189,8 @@
     const amount = money(Number(item.amount) || 0);
     const month = Math.max(1, Number(item.month) || 1);
     return item.recur === "monthly"
-      ? `${amount} extra cada mes, desde el mes ${month}.`
-      : `${amount} una sola vez, en el mes ${month}.`;
+      ? `Abonas ${amount} cada mes, desde la cuota ${month}.`
+      : `Abonas ${amount} una sola vez, en la cuota ${month}.`;
   }
 
   function monthChoices(selected) {
@@ -227,14 +231,31 @@
     box.replaceChildren();
     if (!state.extras.length) {
       const p = document.createElement("p");
-      p.className = "faint";
-      p.textContent = "Sin abonos todavía. Añade uno único o uno que se repita cada mes.";
+      p.className = "empty-note";
+      p.textContent = "Aún no tienes abonos. Añade uno para ver cuánto te ahorras.";
       box.appendChild(p);
       return;
     }
     state.extras.forEach((item, index) => {
       const card = document.createElement("div");
       card.className = "extra-card";
+
+      const head = document.createElement("div");
+      head.className = "extra-card-head";
+      const title = document.createElement("strong");
+      title.textContent = `Abono ${index + 1}`;
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "icon-btn";
+      remove.textContent = "×";
+      remove.title = "Quitar este abono";
+      remove.setAttribute("aria-label", `Quitar abono ${index + 1}`);
+      remove.addEventListener("click", () => {
+        state.extras.splice(index, 1);
+        renderExtras();
+        render();
+      });
+      head.append(title, remove);
 
       const amountField = document.createElement("div");
       amountField.className = "field";
@@ -266,7 +287,7 @@
       whenField.className = "field";
       const whenLabel = document.createElement("label");
       whenLabel.setAttribute("for", `extra-month-${item.id}`);
-      whenLabel.textContent = "Desde el mes número";
+      whenLabel.textContent = "En la cuota n.º";
       const monthChoicesNow = monthChoices(item.month || 1);
       const month = Norte.menuSelect(monthChoicesNow.chosen, monthChoicesNow.options, (value) => {
         item.month = Number.parseInt(value, 10) || 1;
@@ -276,24 +297,26 @@
       month.id = `extra-month-${item.id}`;
       month.classList.add("extra-month");
       month.dataset.id = item.id;
-      const whenHint = document.createElement("span");
-      whenHint.className = "hint";
-      whenHint.textContent = "1 es la primera cuota, 2 la segunda, y así.";
-      whenField.append(whenLabel, month, whenHint);
+      whenField.append(whenLabel, month);
+
+      const pair = document.createElement("div");
+      pair.className = "extra-pair";
+      pair.append(amountField, whenField);
 
       const howField = document.createElement("div");
       howField.className = "field";
-      const howLabel = document.createElement("label");
+      const howLabel = document.createElement("span");
+      howLabel.className = "field-label";
       howLabel.textContent = "Cada cuánto";
       const tabs = document.createElement("div");
-      tabs.className = "tabs";
+      tabs.className = "tabs tabs-block";
       tabs.setAttribute("role", "tablist");
       const onceBtn = document.createElement("button");
       onceBtn.type = "button";
       onceBtn.textContent = "Solo una vez";
       const monthlyBtn = document.createElement("button");
       monthlyBtn.type = "button";
-      monthlyBtn.textContent = "Desde ese mes";
+      monthlyBtn.textContent = "Todos los meses";
       function syncRecurTabs() {
         onceBtn.classList.toggle("is-active", item.recur !== "monthly");
         monthlyBtn.classList.toggle("is-active", item.recur === "monthly");
@@ -318,23 +341,20 @@
       hint.className = "extra-hint";
       hint.textContent = extraHintText(item);
 
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "btn extra-remove";
-      remove.textContent = "Quitar este abono";
-      remove.addEventListener("click", () => {
-        state.extras.splice(index, 1);
-        renderExtras();
-        render();
-      });
-
-      card.append(amountField, whenField, howField, hint, remove);
+      card.append(head, pair, howField, hint);
       box.appendChild(card);
     });
   }
 
+  const TAB_DESC = {
+    recopilado: "Lo más importante de tu crédito, con y sin abonos.",
+    meses: "El detalle de cada cuota: cuánto es interés, cuánto baja la deuda.",
+    anos: "Los totales de cada año del crédito."
+  };
+
   function setTab(tab) {
     state.tab = tab;
+    document.getElementById("tab-desc").textContent = TAB_DESC[tab] || "";
     document.getElementById("panel-recopilado").hidden = tab !== "recopilado";
     document.getElementById("panel-meses").hidden = tab !== "meses";
     document.getElementById("panel-anos").hidden = tab !== "anos";
@@ -425,56 +445,75 @@
     const boostInterest = sum(boosted.rows, "interest");
     const lastBoostPay = boosted.rows.length ? boosted.rows.at(-1).payment : origPay;
 
+    const savedMonths = Math.max(0, origMonths - boostMonths);
+    const savedInterest = Math.max(0, origInterest - boostInterest);
     document.getElementById("metrics").replaceChildren(
-      metric("Cuota + seguros", money(origPay), `Tasa ${Norte.formatPct(rate)} · ${totalMonths()} meses`),
+      metric("Pagas cada mes", money(origPay), `Con seguros incluidos · tasa ${Norte.formatPct(rate)} anual · plazo de ${duration(totalMonths())}`, "", true),
+      state.mode === "plazo"
+        ? metric(
+          "Con abonos terminas en",
+          duration(boostMonths),
+          savedMonths ? `${duration(savedMonths)} antes que sin abonos.` : "Añade abonos para terminar antes."
+        )
+        : metric("Tu cuota al final", money(lastBoostPay), "Baja un poco después de cada abono."),
+      metric("Intereses sin abonos", money(origInterest), `En total pagarías ${money(sum(original.rows, "payment"))}.`),
       metric(
-        state.mode === "plazo" ? "Tiempo con abonos" : "Cuota con abonos",
-        state.mode === "plazo"
-          ? `${boostMonths} meses`
-          : money(lastBoostPay),
-        state.mode === "plazo"
-          ? `Ahorras ${Math.max(0, origMonths - boostMonths)} meses`
-          : "La cuota baja después de cada abono"
-      ),
-      metric("Intereses si no abonas", money(origInterest), `Total pagado ${money(sum(original.rows, "payment"))}`),
-      metric(
-        "Intereses si abonas",
+        "Intereses con abonos",
         money(boostInterest),
-        `Ahorras ${money(Math.max(0, origInterest - boostInterest))} en intereses`,
+        savedInterest ? `Te ahorras ${money(savedInterest)} en intereses.` : "Igual que sin abonos.",
         "positive"
       )
     );
 
-    const origPts = sample([{ month: 0, year: 0, balance: state.principal }, ...original.rows.map((row) => ({ ...row, year: row.month / 12 }))]);
-    const boostPts = sample([{ month: 0, year: 0, balance: state.principal }, ...boosted.rows.map((row) => ({ ...row, year: row.month / 12 }))]);
-    NorteCharts.lineChart(document.getElementById("balance-chart"), [
-      { name: "Sin abonos", color: "#c98970", points: origPts.map((row) => ({ x: row.year, y: row.balance })) },
-      { name: "Con abonos", color: "#9cbaa4", points: boostPts.map((row) => ({ x: row.year, y: row.balance })) }
-    ], {
-      formatY: (value) => Norte.formatCompact(value, CURRENCY),
-      formatX: (value) => {
-        const years = Math.round(value);
-        if (years === 0) return "Inicio";
-        return `${years} ${years === 1 ? "Año" : "Años"}`;
-      }
+    const compact = (value) => `$${Norte.formatCompact(value, CURRENCY)}`;
+    const toPoints = (rows) => [{ x: 0, y: state.principal }, ...rows.map((row) => ({ x: row.month, y: row.balance }))];
+    NorteCharts.area(document.getElementById("balance-chart"), {
+      series: [
+        { name: "Sin abonos", color: "#f07d6e", points: toPoints(original.rows), fillOpacity: 0.16 },
+        { name: "Con abonos", color: "#3fd49a", points: toPoints(boosted.rows), fillOpacity: 0.24, afterEnd: "Ya pagado" }
+      ],
+      formatY: money,
+      formatAxis: compact,
+      formatX: (month) => {
+        if (month === 0) return "Hoy";
+        return month % 12 === 0 ? `Año ${month / 12}` : `Mes ${month}`;
+      },
+      xTicks: (min, max, innerW) => {
+        const ticks = [];
+        let step;
+        if (max <= 24) step = max <= 12 ? 3 : 6;
+        else {
+          const room = Math.max(2, Math.floor(innerW / 80));
+          const raw = max / 12 / room;
+          step = ([1, 2, 3, 5, 10].find((n) => n >= raw) || 10) * 12;
+        }
+        for (let m = 0; m <= max; m += step) ticks.push(m);
+        return ticks;
+      },
+      tipTitle: (month) => (month === 0 ? "Hoy" : `Cuota ${month} · año ${Math.ceil(month / 12)}`),
+      empty: "Escribe el valor del crédito para ver la gráfica."
     });
 
     const yearly = [];
     boosted.rows.forEach((row) => {
-      if (!yearly[row.yearIndex]) yearly[row.yearIndex] = { year: row.yearIndex, interest: 0, capital: 0 };
+      if (!yearly[row.yearIndex]) yearly[row.yearIndex] = { year: row.yearIndex, interest: 0, capital: 0, insurance: 0 };
       yearly[row.yearIndex].interest += row.interest;
       yearly[row.yearIndex].capital += row.capital;
+      yearly[row.yearIndex].insurance += row.insurance;
     });
     const yearRows = yearly.filter(Boolean);
-    if (yearRows.length) {
-      NorteCharts.lineChart(document.getElementById("mix-chart"), [
-        { name: "Intereses", color: "#c98970", points: yearRows.map((row) => ({ x: row.year, y: row.interest })) },
-        { name: "Capital", color: "#d4c4a0", points: yearRows.map((row) => ({ x: row.year, y: row.capital })) }
-      ], {
-        formatY: (value) => Norte.formatCompact(value, CURRENCY),
-        formatX: (value) => `${Math.round(value)} ${Math.round(value) === 1 ? "Año" : "Años"}`
-      });
-    }
+    NorteCharts.columns(document.getElementById("mix-chart"), {
+      labels: yearRows.map((row) => `Año ${row.year}`),
+      series: [
+        { name: "Baja la deuda", color: "#3fd49a", values: yearRows.map((row) => row.capital), stack: "pago" },
+        { name: "Intereses", color: "#f07d6e", values: yearRows.map((row) => row.interest), stack: "pago" },
+        { name: "Seguros", color: "#f3b65b", values: yearRows.map((row) => row.insurance), stack: "pago" }
+      ],
+      format: money,
+      formatAxis: compact,
+      tipExtra: (i) => [{ name: "Pagaste en el año", value: money(yearRows[i].capital + yearRows[i].interest + yearRows[i].insurance), total: true }],
+      empty: "Escribe el valor del crédito para ver la gráfica."
+    });
 
     renderTables(original, boosted);
     setTab(state.tab);

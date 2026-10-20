@@ -5,11 +5,20 @@
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
   ];
-  const SLICE_COLORS = [
-    "#c98970", "#8aa4c4", "#d4c4a0", "#b8a1d4", "#7dcea0",
-    "#e0c07a", "#c47a8a", "#9cbaa4", "#6f8aa8", "#e8a87c",
-    "#7f9bb8", "#c5a3a3", "#8bc4b0", "#d4a0c4"
-  ];
+  const SLICE_COLORS = NorteCharts.palette;
+  const COLORS = {
+    sales: "#3fd49a",
+    costs: "#f07d6e",
+    expenses: "#f3b65b",
+    tax: "#a68cf7",
+    total: "#6c9eff",
+    net: "#4cc3e6"
+  };
+  const TAB_DESC = {
+    recopilado: "Tu año de un vistazo: productos, ventas, costos y ganancia.",
+    meses: "Toca un mes para anotar ventas, costos y gastos.",
+    factura: "Todo el año en una sola hoja, lista para imprimir o guardar en PDF."
+  };
 
   function uid() {
     return `n-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -153,8 +162,8 @@
     const contrib = t.income > 0 ? 1 - t.variable / t.income : 0;
     return {
       ...t,
-      low: t.net * (1 - u),
-      high: t.net * (1 + u),
+      low: t.net - Math.abs(t.net) * u,
+      high: t.net + Math.abs(t.net) * u,
       marginGross: t.income ? (t.gross / t.income) * 100 : 0,
       marginNet: t.income ? (t.net / t.income) * 100 : 0,
       breakEven: contrib > 0 ? t.fixed / contrib : null
@@ -221,9 +230,9 @@
       .sort((a, b) => b.value - a.value);
   }
 
-  function metric(label, value, sub, extraClass) {
+  function metric(label, value, sub, extraClass, hero) {
     const article = document.createElement("article");
-    article.className = "metric";
+    article.className = hero ? "metric is-hero" : "metric";
     const k = document.createElement("div");
     k.className = "label";
     k.textContent = label;
@@ -242,6 +251,7 @@
 
   function makeInput(value, onChange, attrs = {}) {
     const input = document.createElement("input");
+    input.className = "input";
     input.value = value;
     Object.entries(attrs).forEach(([key, val]) => input.setAttribute(key, val));
     input.addEventListener("input", () => onChange(input));
@@ -274,9 +284,12 @@
     Object.entries(panels).forEach(([name, node]) => {
       node.hidden = name !== tab;
     });
-    document.querySelectorAll(".overview-tabs [data-tab]").forEach((button) => {
-      button.classList.toggle("is-active", button.dataset.tab === tab);
+    document.querySelectorAll(".overview-tabbar [data-tab]").forEach((button) => {
+      const active = button.dataset.tab === tab;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
     });
+    document.getElementById("tab-desc").textContent = TAB_DESC[tab] || "";
     if (tab === "factura") renderInvoice();
     if (tab === "meses") renderMonthGrid();
     if (tab === "recopilado") renderProducts();
@@ -288,6 +301,13 @@
     getMonth(year, key, true);
     if (location.hash !== `#${year}-${key}`) location.hash = `${year}-${key}`;
     render();
+    Norte.scrollTop();
+  }
+
+  function shiftMonth(delta) {
+    if (!state.openMonth) return;
+    const index = state.openMonth.year * 12 + Number(state.openMonth.month) - 1 + delta;
+    openMonth(Math.floor(index / 12), monthKey(((index % 12) + 12) % 12));
   }
 
   function closeMonth() {
@@ -295,6 +315,7 @@
     state.tab = "meses";
     if (location.hash) history.replaceState(null, "", location.pathname + location.search);
     render();
+    Norte.scrollTop();
   }
 
   function readHash() {
@@ -333,7 +354,7 @@
     if (!state.products.length) {
       const p = document.createElement("p");
       p.className = "empty-note";
-      p.textContent = "Añade un producto con su precio. Luego, en cada mes, solo escribes cuántos se vendieron.";
+      p.textContent = "Crea un producto con su precio. Luego, en cada mes, solo escribes cuántos vendiste.";
       box.appendChild(p);
       return;
     }
@@ -353,7 +374,7 @@
       const priceField = document.createElement("div");
       priceField.className = "field";
       const priceLabel = document.createElement("label");
-      priceLabel.textContent = "Valor por unidad";
+      priceLabel.textContent = "Precio por unidad";
       const suffix = document.createElement("div");
       suffix.className = "input-suffix";
       const price = makeInput(product.unitPrice || "", (input) => {
@@ -371,8 +392,8 @@
       const doneLabel = document.createElement("label");
       doneLabel.textContent = "Este año";
       const strong = document.createElement("strong");
-      const meta = document.createElement("div");
-      meta.className = "product-meta";
+      const meta = document.createElement("p");
+      meta.className = "saving-meta";
       const paint = () => {
         const stats = productYearStats(product.id, state.viewYear);
         strong.textContent = money(stats.revenue);
@@ -410,29 +431,65 @@
       const entry = getMonth(state.viewYear, key, false);
       const t = monthTotals(entry);
       const filled = monthHasData(entry);
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = `month-card${filled ? "" : " is-empty"}`;
-      const title = document.createElement("div");
-      title.className = "name";
-      title.textContent = name;
-      const mini = document.createElement("div");
-      mini.className = "mini";
+      const isNow = state.viewYear === now.getFullYear() && index === now.getMonth();
+      const card = document.createElement("article");
+      card.className = `month-card${filled ? "" : " is-empty"}${isNow ? " is-now" : ""}`;
+      card.tabIndex = 0;
+      card.setAttribute("role", "button");
+      card.setAttribute("aria-label", `Abrir ${name} de ${state.viewYear}`);
+
+      const head = document.createElement("div");
+      head.className = "month-card-head";
+      head.appendChild(Object.assign(document.createElement("h3"), { textContent: name }));
+      if (isNow) head.appendChild(Object.assign(document.createElement("span"), { className: "month-now", textContent: "Este mes" }));
+
+      const body = document.createElement("div");
+      body.className = "month-card-body";
       if (filled) {
-        mini.append(
-          Object.assign(document.createElement("span"), { textContent: `Ventas ${money(t.income)}` }),
-          Object.assign(document.createElement("span"), { textContent: `Costos y gastos ${money(t.cogs + t.opex)}` }),
-          Object.assign(document.createElement("span"), {
-            textContent: `Neta ${money(t.net)}`,
-            className: t.net >= 0 ? "positive" : "negative"
-          })
-        );
+        const out = t.cogs + t.opex;
+        [
+          ["Ventas", money(t.income), ""],
+          ["Costos y gastos", money(out), ""],
+          ["Ganancia neta", money(t.net), t.net >= 0 ? "positive" : "negative"]
+        ].forEach(([label, value, cls]) => {
+          const line = document.createElement("div");
+          line.className = "month-line";
+          const strong = Object.assign(document.createElement("strong"), { textContent: value });
+          if (cls) strong.className = cls;
+          line.append(Object.assign(document.createElement("span"), { textContent: label }), strong);
+          body.appendChild(line);
+        });
+        const top = Math.max(t.income, out, 1);
+        const meter = document.createElement("div");
+        meter.className = "month-meter";
+        meter.setAttribute("aria-hidden", "true");
+        [["is-in", t.income], ["is-out", out]].forEach(([cls, value]) => {
+          const bar = document.createElement("span");
+          bar.className = cls;
+          bar.style.width = `${Math.max(value > 0 ? 3 : 0, (value / top) * 100)}%`;
+          meter.appendChild(bar);
+        });
+        body.appendChild(meter);
       } else {
-        mini.append(Object.assign(document.createElement("span"), { textContent: "Sin datos · abrir para anotar" }));
+        body.appendChild(Object.assign(document.createElement("p"), {
+          className: "month-empty",
+          textContent: "Sin movimientos. Toca para anotar."
+        }));
       }
-      button.append(title, mini);
-      button.addEventListener("click", () => openMonth(state.viewYear, key));
-      grid.appendChild(button);
+
+      const foot = document.createElement("div");
+      foot.className = "month-card-foot";
+      foot.appendChild(Object.assign(document.createElement("span"), { className: "month-open", textContent: "Abrir mes →" }));
+
+      card.append(head, body, foot);
+      card.addEventListener("click", () => openMonth(state.viewYear, key));
+      card.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openMonth(state.viewYear, key);
+        }
+      });
+      grid.appendChild(card);
     });
   }
 
@@ -440,8 +497,7 @@
     const visible = rows.filter((row) => Number(row.amount) > 0);
     if (!visible.length) return;
     const h = document.createElement("div");
-    h.className = "invoice-row";
-    h.style.color = "var(--faint)";
+    h.className = "invoice-row invoice-group";
     h.textContent = title;
     box.appendChild(h);
     visible.forEach((row) => {
@@ -469,16 +525,14 @@
     const title = document.createElement("h2");
     title.textContent = `Factura ${state.viewYear}`;
     const who = document.createElement("p");
-    who.textContent = state.name ? state.name : "Sin nombre de negocio";
+    who.textContent = state.name ? state.name : "Tu negocio";
     left.append(brand, title, who);
     const right = document.createElement("div");
-    right.style.textAlign = "right";
+    right.className = "invoice-stamp";
     const stamp = document.createElement("p");
-    stamp.className = "faint";
     stamp.textContent = "Ganancia neta del año";
     const big = document.createElement("strong");
-    big.style.fontFamily = "var(--serif)";
-    big.style.fontSize = "1.6rem";
+    big.className = totals.net >= 0 ? "" : "negative";
     big.textContent = money(totals.net);
     right.append(stamp, big);
     head.append(left, right);
@@ -500,13 +554,13 @@
         const qty = Number(sale.qty) || 0;
         const price = Number(product && product.unitPrice) || 0;
         return {
-          name: `${product && product.name ? product.name : "Producto"} · ${qty.toLocaleString("es-CO")} × ${money(price)}`,
+          name: `${product && product.name ? product.name : "Producto"} · ${qty.toLocaleString("es-CO")} unidades a ${money(price)}`,
           amount: saleAmount(sale)
         };
       }));
       addInvoiceRows(block, "Costos directos", entry.costs || []);
       addInvoiceRows(block, "Gastos", (entry.expenses || []).map((row) => ({
-        name: `${row.name || "Gasto"} · ${row.type === "variable" ? "variable" : "fijo"}`,
+        name: `${row.name || "Gasto"} · ${row.type === "variable" ? "Variable" : "Fijo"}`,
         amount: row.amount
       })));
       const sub = document.createElement("div");
@@ -522,7 +576,7 @@
     if (!any) {
       const empty = document.createElement("p");
       empty.className = "invoice-empty";
-      empty.textContent = "Todavía no hay movimientos este año. Anótalos en la pestaña Meses.";
+      empty.textContent = "Aún no hay movimientos este año. Anótalos en Movimientos.";
       box.appendChild(empty);
       return;
     }
@@ -548,59 +602,93 @@
     box.appendChild(foot);
   }
 
+  function monthsOfYear() {
+    return MONTHS.map((name, index) => monthTotals(getMonth(state.viewYear, monthKey(index), false)));
+  }
+
   function renderOverviewCharts() {
     const totals = yearTotals(state.viewYear);
+    const compact = (value) => Norte.formatCompact(value, CURRENCY);
     document.getElementById("year-metrics").replaceChildren(
-      metric("Ganancia bruta", money(totals.gross), `Margen ${Norte.formatPct(totals.marginGross)} · ventas menos costos`, totals.gross >= 0 ? "positive" : "negative"),
-      metric("Ganancia neta", money(totals.net), `Después de gastos e impuestos ${Norte.formatPct(state.taxRate)}`, totals.net >= 0 ? "positive" : "negative"),
       metric(
-        "Rango de incertidumbre",
-        `${money(totals.low)} → ${money(totals.high)}`,
-        `±${Norte.formatPct(state.uncertainty)} sobre la ganancia neta`
+        "Ganancia neta del año",
+        money(totals.net),
+        totals.income ? `Te queda el ${Norte.formatPct(totals.marginNet)} de cada venta, después de impuestos` : "Anota ventas en Movimientos para verla",
+        totals.net >= 0 ? "positive" : "negative",
+        true
       ),
+      metric("Ventas", money(totals.income), "Lo que vendiste en el año"),
+      metric("Ganancia bruta", money(totals.gross), `Margen ${Norte.formatPct(totals.marginGross)} sobre las ventas`, totals.gross >= 0 ? "" : "negative"),
+      metric("Costos y gastos", money(totals.cogs + totals.opex), `Más ${money(totals.tax)} en impuestos`),
       metric(
         "Punto de equilibrio",
         totals.breakEven === null ? "—" : money(totals.breakEven),
-        totals.breakEven === null ? "Marca gastos fijos y variables" : "Ventas mínimas del año para no perder"
+        totals.breakEven === null ? "Aparece cuando tengas ventas y gastos" : "Lo mínimo que debes vender en el año para no perder"
       )
     );
 
-    NorteCharts.barsChart(document.getElementById("pnl-chart"), [
-      { label: "Ventas", value: totals.income, color: "#9cbaa4" },
-      { label: "Costos directos", value: totals.cogs, color: "#c98970" },
-      { label: "Ganancia bruta", value: Math.max(0, totals.gross), color: "#d4c4a0" },
-      { label: "Gastos", value: totals.opex, color: "#8aa4c4" },
-      { label: "Impuestos", value: totals.tax, color: "#c47a8a" },
-      { label: "Ganancia neta", value: Math.max(0, totals.net), color: "#7dcea0" }
-    ], { format: money });
-
-    NorteCharts.donutChart(document.getElementById("mix-donut"), yearOutflowSlices(state.viewYear), {
-      centerLabel: "Salidas",
-      centerValue: money(totals.cogs + totals.opex),
-      empty: "Añade costos o gastos en los meses",
-      format: money
+    const pnl = document.getElementById("pnl-chart");
+    const narrow = pnl.clientWidth > 0 && pnl.clientWidth < 460;
+    NorteCharts.waterfall(pnl, {
+      steps: [
+        { label: "Ventas", short: "Ventas", value: totals.income, kind: "total", color: COLORS.sales },
+        { label: "Costos directos", short: "Costos", value: -totals.cogs, color: COLORS.costs },
+        { label: "Ganancia bruta", short: "Bruta", value: totals.gross, kind: "total", color: COLORS.total },
+        { label: "Gastos del negocio", short: "Gastos", value: -totals.opex, color: COLORS.expenses },
+        { label: "Impuestos", short: narrow ? "Imp." : "Impuestos", value: -totals.tax, color: COLORS.tax },
+        { label: "Ganancia neta", short: "Neta", value: totals.net, kind: "total", color: totals.net >= 0 ? COLORS.net : COLORS.costs }
+      ],
+      format: money,
+      formatShort: compact,
+      empty: "Anota ventas en Movimientos para ver el recorrido."
     });
 
-    const points = MONTHS.map((name, index) => {
-      const entry = getMonth(state.viewYear, monthKey(index), false);
-      const t = monthTotals(entry);
-      return { x: index + 1, ...t, name };
-    });
-    NorteCharts.lineChart(document.getElementById("year-chart"), [
-      { name: "Ventas", color: "#9cbaa4", points: points.map((p) => ({ x: p.x, y: p.income })) },
-      { name: "Costos", color: "#c98970", points: points.map((p) => ({ x: p.x, y: p.cogs })) },
-      { name: "Gastos", color: "#8aa4c4", points: points.map((p) => ({ x: p.x, y: p.opex })) },
-      { name: "Ganancia neta", color: "#d4c4a0", points: points.map((p) => ({ x: p.x, y: p.net })) }
-    ], {
-      formatY: (value) => Norte.formatCompact(value, CURRENCY),
-      formatX: (value) => MONTHS[Math.max(0, Math.round(value) - 1)].slice(0, 3)
+    NorteCharts.breakdown(document.getElementById("mix-donut"), yearOutflowSlices(state.viewYear), {
+      format: money,
+      totalLabel: "Salió en total",
+      empty: "Anota costos o gastos en Movimientos."
     });
 
-    NorteCharts.barsChart(document.getElementById("range-chart"), [
-      { label: "Escenario bajo", value: Math.abs(totals.low), color: "#c98970" },
-      { label: "Esperado", value: Math.abs(totals.net), color: "#d4c4a0" },
-      { label: "Escenario alto", value: Math.abs(totals.high), color: "#9cbaa4" }
-    ], { format: money });
+    const months = monthsOfYear();
+    NorteCharts.columns(document.getElementById("year-chart"), {
+      labels: MONTHS,
+      shortLabels: MONTHS.map((name) => name.slice(0, 3)),
+      series: [
+        { name: "Ventas", color: COLORS.sales, stack: "entra", values: months.map((t) => t.income) },
+        { name: "Costos", color: COLORS.costs, stack: "sale", values: months.map((t) => t.cogs) },
+        { name: "Gastos", color: COLORS.expenses, stack: "sale", values: months.map((t) => t.opex) }
+      ],
+      lines: [{ name: "Ganancia neta", color: COLORS.net, values: months.map((t) => t.net) }],
+      format: money,
+      formatAxis: compact,
+      tipTitle: (i) => `${MONTHS[i]} ${state.viewYear}`,
+      tipRows: (i) => {
+        const t = months[i];
+        return [
+          { name: "Ventas", color: COLORS.sales, value: money(t.income) },
+          { name: "Costos", color: COLORS.costs, value: money(t.cogs) },
+          { name: "Gastos", color: COLORS.expenses, value: money(t.opex) },
+          { name: "Impuestos", color: COLORS.tax, value: money(t.tax) },
+          { name: "Ganancia neta", color: COLORS.net, value: money(t.net), total: true }
+        ];
+      },
+      title: "Ventas, costos y gastos de cada mes",
+      empty: "Anota ventas en Movimientos para ver cada mes."
+    });
+
+    document.getElementById("range-note").textContent = state.uncertainty
+      ? `Si la ganancia neta varía ${Norte.formatPct(state.uncertainty, 0)} hacia abajo o hacia arriba.`
+      : "Sube el margen de error para ver un escenario bajo y uno alto.";
+    NorteCharts.range(document.getElementById("range-chart"), {
+      low: totals.low,
+      mid: totals.net,
+      high: totals.high,
+      lowLabel: "Si va peor",
+      midLabel: "Lo esperado",
+      highLabel: "Si va mejor",
+      format: money,
+      empty: "Anota ventas en Movimientos para ver los escenarios."
+    });
   }
 
   function renderOverview() {
@@ -654,10 +742,10 @@
     const entry = currentMonth();
     box.replaceChildren();
     if (!state.products.length) {
-      hint.textContent = "Crea un producto en Recopilado y vuelve a este mes para anotar ventas.";
+      hint.textContent = "Primero crea un producto con «Producto» o en Resumen.";
       return;
     }
-    hint.textContent = "Escribe cuántas unidades se vendieron. El total se calcula con el valor de cada producto.";
+    hint.textContent = "";
     syncSales(entry);
     entry.sales.forEach((sale) => {
       const product = productById(sale.productId);
@@ -666,6 +754,7 @@
       wrap.className = "sale-row";
 
       const info = document.createElement("div");
+      info.className = "sale-info";
       const name = document.createElement("div");
       name.className = "sale-name";
       name.textContent = product.name || "Producto sin nombre";
@@ -677,7 +766,7 @@
       const qtyField = document.createElement("div");
       qtyField.className = "field";
       const qtyLabel = document.createElement("label");
-      qtyLabel.textContent = "Vendidos";
+      qtyLabel.textContent = "Unidades";
       const qty = makeInput(sale.qty || "", (input) => {
         sale.qty = Number.parseFloat(input.value) || 0;
         total.textContent = money(saleAmount(sale));
@@ -686,9 +775,9 @@
       qtyField.append(qtyLabel, qty);
 
       const totalField = document.createElement("div");
-      totalField.className = "field";
+      totalField.className = "field sale-total";
       const totalLabel = document.createElement("label");
-      totalLabel.textContent = "Ingreso";
+      totalLabel.textContent = "Total";
       const total = document.createElement("strong");
       total.className = "line-total";
       total.textContent = money(saleAmount(sale));
@@ -713,16 +802,16 @@
     document.getElementById("cost-total").textContent = money(t.cogs);
     document.getElementById("expense-total").textContent = money(t.opex);
     document.getElementById("month-metrics").replaceChildren(
-      metric("Ganancia neta", money(t.net), "Después de costos, gastos e impuestos", t.net >= 0 ? "positive" : "negative"),
-      metric("Ventas", money(t.income), ""),
+      metric("Ganancia neta del mes", money(t.net), "Después de costos, gastos e impuestos", t.net >= 0 ? "positive" : "negative", true),
+      metric("Ventas", money(t.income)),
       metric("Ganancia bruta", money(t.gross), `Margen ${Norte.formatPct(t.marginGross)}`),
-      metric("Salidas", money(t.cogs + t.opex + t.tax), `Costos, gastos e impuestos`)
+      metric("Costos y gastos", money(t.cogs + t.opex)),
+      metric("Impuestos", money(t.tax), `${Norte.formatPct(state.taxRate)} de la ganancia`)
     );
-    NorteCharts.donutChart(document.getElementById("month-donut"), outflowSlices(entry.costs, entry.expenses), {
-      centerLabel: "Salidas",
-      centerValue: money(t.cogs + t.opex),
-      empty: "Añade costos o gastos para ver la composición",
-      format: money
+    NorteCharts.breakdown(document.getElementById("month-donut"), outflowSlices(entry.costs, entry.expenses), {
+      format: money,
+      totalLabel: "Salió este mes",
+      empty: "Anota costos o gastos para verlos aquí."
     });
   }
 
@@ -851,7 +940,7 @@
       }
     };
     render();
-    Norte.toast("Ejemplo de cafetería cargado.");
+    Norte.toast("Cargamos un ejemplo para que explores.");
   }
 
   function addProduct() {
@@ -864,7 +953,7 @@
     }
   }
 
-  document.querySelectorAll(".overview-tabs [data-tab]").forEach((button) => {
+  document.querySelectorAll(".overview-tabbar [data-tab]").forEach((button) => {
     button.addEventListener("click", () => setTab(button.dataset.tab));
   });
   document.getElementById("year-prev").addEventListener("click", () => {
@@ -904,6 +993,9 @@
     renderMonthLists();
   });
   document.getElementById("btn-back").addEventListener("click", closeMonth);
+  document.getElementById("month-prev").addEventListener("click", () => shiftMonth(-1));
+  document.getElementById("month-next").addEventListener("click", () => shiftMonth(1));
+  document.getElementById("btn-print-invoice").addEventListener("click", () => window.print());
   document.getElementById("btn-ejemplo").addEventListener("click", loadExample);
   document.getElementById("btn-guardar").addEventListener("click", () => {
     Norte.downloadSnapshot(FEATURE, snapshot());

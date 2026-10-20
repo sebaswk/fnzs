@@ -1,111 +1,134 @@
-.pyme-tools {
-  display: grid;
-  grid-template-columns: minmax(0, 1.3fr) 140px 140px auto;
-  gap: 12px;
-  align-items: end;
+/* Pymes: usa la base de Flujo personal y añade productos y ventas */
+
+.pyme-identity {
+  grid-template-columns: minmax(0, 1.4fr) minmax(130px, 160px) minmax(130px, 160px) auto;
 }
 
-.pyme-tools > .btn {
-  min-height: 46px;
-}
-
-.pyme-metrics {
-  margin-top: 0;
-}
-
-#panel-recopilado {
-  display: grid;
-  gap: 16px;
-}
-
-#panel-recopilado .overview-grid,
-#panel-recopilado .pulse-card {
-  margin-top: 0;
-  margin-bottom: 0;
-}
-
-.range-note {
-  margin-top: 6px;
-  margin-bottom: 12px;
-}
-
-.product-list {
-  display: grid;
-  gap: 12px;
+.pyme-context {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .product-card {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) 170px minmax(120px, 0.8fr) 40px;
-  gap: 10px;
-  align-items: end;
-  padding: 14px;
+  grid-template-columns: minmax(0, 1.4fr) minmax(160px, 210px) minmax(150px, 0.8fr) 44px;
+  align-items: start;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(8, 9, 11, 0.35);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
 }
 
-.product-meta {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 4px;
+.product-card > .icon-btn {
+  width: 44px;
+  height: 44px;
+  margin-top: 24px;
 }
 
 .product-done strong {
-  display: block;
-  font-family: var(--serif);
-  font-size: 1.15rem;
-  font-weight: 500;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.product-done .saving-meta {
+  margin-top: -4px;
 }
 
 .sale-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) 120px minmax(110px, 0.7fr);
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, 140px) minmax(130px, 180px);
   align-items: end;
+  gap: 12px;
+  min-width: 0;
   padding: 14px;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(8, 9, 11, 0.28);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
 }
 
-.sale-row .sale-name {
-  font-family: var(--serif);
-  font-size: 1.05rem;
+.sale-info {
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 44px;
 }
 
-.sale-row .sale-price {
-  margin-top: 4px;
-  font-size: 12px;
+.sale-name {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sale-price {
+  font-size: 13px;
   color: var(--muted);
 }
 
-.sale-row .line-total {
-  display: block;
-  font-family: var(--serif);
-  font-size: 1.2rem;
-  font-weight: 500;
+.sale-total > label {
   text-align: right;
 }
 
-.sale-row input[type="number"] {
-  font-size: 18px;
-  min-height: 48px;
-  padding: 12px 14px;
+.sale-total .line-total {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 44px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-@media (max-width: 960px) {
-  .pyme-tools,
-  .product-card,
+@media (max-width: 900px) {
+  .pyme-identity {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pyme-identity > .toolbar-example {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .product-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .product-card > .field:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .product-card > .icon-btn {
+    grid-column: 1 / -1;
+    justify-self: end;
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .pyme-identity > .toolbar-example {
+    justify-self: stretch;
+  }
+
+  .product-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .sale-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .sale-row .line-total {
-    text-align: left;
-  }
-
-  .pyme-tools .btn {
-    width: 100%;
+  .sale-info {
+    grid-column: 1 / -1;
+    min-height: 0;
   }
 }

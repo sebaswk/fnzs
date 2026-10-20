@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#08090b">
-  <meta name="description" content="Pymes: productos, ventas mensuales, costos, ganancia y factura del año.">
+  <meta name="theme-color" content="#0a0b0d">
+  <meta name="robots" content="noindex">
+  <meta name="description" content="Pymes: productos, ventas de cada mes, costos, gastos, ganancia y factura del año.">
   <title>Pymes — Norte</title>
   <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../assets/css/base.css">
   <link rel="stylesheet" href="../finanzas-personales/finanzas.css">
   <link rel="stylesheet" href="pymes.css">
@@ -17,221 +18,305 @@
 <body>
   <a class="skip" href="#contenido">Saltar al contenido</a>
   <header class="topbar">
-    <a class="brand" href="../../index.html">
-      <svg viewBox="0 0 32 32" aria-hidden="true">
-        <path d="M16 5.5v21" stroke="#d4c4a0" stroke-width="1.4" stroke-linecap="round"/>
-        <path d="M16 5.5 11.2 13.2h9.6L16 5.5Z" fill="#d4c4a0"/>
-        <circle cx="16" cy="16.8" r="2.1" stroke="#9cbaa4" stroke-width="1.2"/>
-      </svg>
-      Norte
-    </a>
-    <nav class="nav" aria-label="Secciones">
-      <a href="../../index.html">Inicio</a>
-      <a href="../finanzas-personales/index.html">Flujo personal</a>
-      <a href="../inversiones/index.html">Inversiones</a>
-      <a href="../creditos/index.html">Créditos</a>
-      <a href="./index.html" class="is-active">Pymes</a>
-    </nav>
-    <div class="topbar-actions">
-      <button class="btn btn-ghost" type="button" id="btn-cargar">Cargar datos</button>
-      <button class="btn btn-primary" type="button" id="btn-guardar">Guardar datos</button>
-      <input class="hidden-file" id="file-input" type="file" accept="application/json,.json">
+    <div class="topbar-inner">
+      <a class="brand" href="../../index.html" aria-label="Norte, inicio">
+        <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2.8 6.6 14.2h10.8L12 2.8Z" fill="#3fd49a"/><path d="M12 14.2v6.6" stroke="#74e6b9" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+        <span class="brand-name">Norte</span>
+      </a>
+      <nav class="nav" aria-label="Secciones">
+        <a class="nav-link" href="../../index.html">Inicio</a>
+        <a class="nav-link" href="../finanzas-personales/index.html">Flujo personal</a>
+        <div class="nav-group">
+          <button class="nav-link nav-trigger" type="button" aria-expanded="false" aria-haspopup="true">
+            Calculadoras
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+          </button>
+          <div class="nav-menu">
+            <a class="nav-item" href="../interes-compuesto/index.html">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span>
+              <span><strong>Interés compuesto</strong><small>Cuánto puede crecer tu dinero</small></span>
+            </a>
+            <a class="nav-item" href="../creditos/index.html">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18"/><path d="M7 15h4"/></svg></span>
+              <span><strong>Créditos</strong><small>Cuota, intereses y abonos a capital</small></span>
+            </a>
+            <a class="nav-item" href="../4x1000/index.html">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></svg></span>
+              <span><strong>4x1000</strong><small>Lo que te cobra el banco al mover dinero</small></span>
+            </a>
+          </div>
+        </div>
+        <a class="nav-link is-active" href="./index.html" aria-current="page" data-feature="pymes" hidden>Pymes</a>
+      </nav>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost btn-sm" type="button" id="btn-cargar" title="Cargar datos guardados">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>
+          <span>Cargar<span class="hide-sm"> datos</span></span>
+        </button>
+        <button class="btn btn-primary btn-sm" type="button" id="btn-guardar" title="Descargar un archivo con tus datos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+          <span>Guardar<span class="hide-sm"> datos</span></span>
+        </button>
+        <input class="hidden-file" id="file-input" type="file" accept="application/json,.json">
+      </div>
+      <button class="nav-toggle" type="button" aria-label="Abrir menú" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
     </div>
   </header>
 
   <main id="contenido" class="page">
+    <!-- Vista general del año -->
     <section id="view-overview">
       <div class="page-head">
-        <p class="kicker"><span></span> 04 · Negocio</p>
-        <h1>Pymes</h1>
-        <p class="lede">Armas el catálogo de productos, anotas cuántos se venden cada mes y ves el año en recopilado, meses y factura.</p>
+        <div>
+          <p class="eyebrow">Tu negocio</p>
+          <h1>Pymes</h1>
+          <p class="lede">Crea tus productos con su precio, anota cuántos vendes cada mes y mira cuánto gana tu negocio.</p>
+        </div>
       </div>
 
-      <div class="year-bar card card-pad">
-        <div class="pyme-tools">
+      <section class="card toolbar-card" aria-label="Datos del negocio">
+        <div class="toolbar-identity pyme-identity">
           <div class="field">
             <label for="biz-name">Nombre del negocio</label>
             <input id="biz-name" type="text" placeholder="Mi tienda">
           </div>
-          <div class="field">
+          <div class="field" title="Porcentaje de la ganancia que se va en impuestos">
             <label for="tax">Impuestos</label>
             <div class="input-suffix">
-              <input id="tax" type="number" min="0" max="100" step="0.1">
+              <input id="tax" type="number" min="0" max="100" step="0.1" inputmode="decimal">
               <em>%</em>
             </div>
           </div>
-          <div class="field">
-            <label for="uncertainty">Incertidumbre</label>
+          <div class="field" title="Qué tanto podría variar la ganancia real">
+            <label for="uncertainty">Margen de error</label>
             <div class="input-suffix">
-              <input id="uncertainty" type="number" min="0" max="80" step="1">
+              <input id="uncertainty" type="number" min="0" max="80" step="1" inputmode="decimal">
               <em>%</em>
             </div>
           </div>
-          <button class="btn btn-ghost" type="button" id="btn-ejemplo">Cargar ejemplo</button>
+          <button class="btn btn-outline toolbar-example" type="button" id="btn-ejemplo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>
+            Cargar ejemplo
+          </button>
         </div>
-        <div class="context-row">
+        <div class="toolbar-context pyme-context">
           <div class="context-block">
-            <span class="context-label">Año</span>
-            <div class="year-nav">
-              <button class="btn" type="button" id="year-prev" aria-label="Año anterior">‹</button>
-              <strong id="year-label">2026</strong>
-              <button class="btn" type="button" id="year-next" aria-label="Año siguiente">›</button>
+            <div class="context-title">
+              <span class="context-label">Año</span>
             </div>
-            <div class="year-chips" id="year-chips"></div>
+            <div class="context-items">
+              <div class="year-nav">
+                <button class="btn btn-sm btn-icon" type="button" id="year-prev" aria-label="Año anterior">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>
+                </button>
+                <strong id="year-label">2026</strong>
+                <button class="btn btn-sm btn-icon" type="button" id="year-next" aria-label="Año siguiente">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+                </button>
+              </div>
+              <div class="chip-row" id="year-chips"></div>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="tabs overview-tabs" role="tablist" aria-label="Vistas del año">
-        <button type="button" role="tab" data-tab="recopilado" class="is-active">Recopilado</button>
-        <button type="button" role="tab" data-tab="meses">Meses</button>
-        <button type="button" role="tab" data-tab="factura">Factura</button>
+      <div class="overview-tabbar">
+        <div class="tabs" role="tablist" aria-label="Secciones del año">
+          <button type="button" role="tab" data-tab="recopilado" class="is-active" aria-selected="true">Resumen</button>
+          <button type="button" role="tab" data-tab="meses" aria-selected="false">Movimientos</button>
+          <button type="button" role="tab" data-tab="factura" aria-selected="false">Factura</button>
+        </div>
       </div>
+      <p class="tab-desc" id="tab-desc">Tu año de un vistazo: productos, ventas, costos y ganancia.</p>
 
-      <div id="panel-recopilado">
+      <div class="panel" id="panel-recopilado">
+        <div class="metrics cols-4" id="year-metrics"></div>
+
         <section class="card card-pad">
           <div class="list-head">
             <div>
               <h2>Productos</h2>
-              <p class="faint">Nombre y valor. En cada mes solo indicas cuántos se vendieron.</p>
+              <p>Nombre y precio. En cada mes solo escribes cuántos vendiste.</p>
             </div>
-            <button class="btn" type="button" id="add-product">Añadir producto</button>
+            <button class="btn btn-sm btn-primary" type="button" id="add-product">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              Nuevo producto
+            </button>
           </div>
-          <div class="product-list" id="product-list"></div>
+          <div class="item-list" id="product-list"></div>
         </section>
 
-        <div class="metrics pyme-metrics" id="year-metrics"></div>
         <div class="overview-grid">
           <article class="card card-pad">
             <div class="list-head">
               <div>
                 <h2>De las ventas a la ganancia</h2>
-                <p class="faint">Totales del año</p>
+                <p>Lo que vendiste y lo que se va restando hasta la ganancia neta.</p>
               </div>
             </div>
-            <div class="chart-wrap">
-              <svg id="pnl-chart" aria-label="Barras del estado de resultados"></svg>
-            </div>
+            <div class="chart" id="pnl-chart"></div>
           </article>
           <article class="card card-pad">
-            <h2>En qué se va el dinero</h2>
-            <div class="chart-wrap">
-              <svg id="mix-donut" aria-label="Costos y gastos del año"></svg>
+            <div class="list-head">
+              <div>
+                <h2>En qué se va el dinero</h2>
+                <p>Costos y gastos del año.</p>
+              </div>
             </div>
+            <div class="chart" id="mix-donut"></div>
           </article>
         </div>
 
-        <article class="card card-pad pulse-card">
+        <article class="card card-pad">
           <div class="list-head">
             <div>
               <h2>Mes a mes</h2>
-              <p class="faint">Ventas, costos y gastos de cada mes</p>
+              <p>Ventas frente a costos y gastos, y la ganancia neta de cada mes.</p>
             </div>
           </div>
-          <div class="chart-wrap pulse-wrap">
-            <svg id="year-chart" aria-label="Ventas y salidas del año"></svg>
-          </div>
-          <div class="legend">
-            <span><i style="background:#9cbaa4"></i>Ventas</span>
-            <span><i style="background:#c98970"></i>Costos</span>
-            <span><i style="background:#8aa4c4"></i>Gastos</span>
-            <span><i style="background:#d4c4a0"></i>Ganancia neta</span>
-          </div>
+          <div class="chart" id="year-chart"></div>
         </article>
 
         <article class="card card-pad">
-          <h2>Rango de incertidumbre</h2>
-          <p class="faint range-note">Mueve la ganancia neta a un rango bajo / esperado / alto.</p>
-          <div class="chart-wrap">
-            <svg id="range-chart" aria-label="Ganancia neta baja, esperada y alta"></svg>
+          <div class="list-head">
+            <div>
+              <h2>Escenarios de ganancia</h2>
+              <p id="range-note">Cuánto podrías ganar si el año sale peor o mejor de lo esperado.</p>
+            </div>
           </div>
+          <div class="chart" id="range-chart"></div>
         </article>
       </div>
 
-      <div id="panel-meses" hidden>
-        <section class="months-panel">
+      <div class="panel" id="panel-meses" hidden>
+        <section class="card card-pad">
           <div class="list-head">
             <div>
-              <h2>Meses de <span id="months-year">2026</span></h2>
-              <p class="faint">Entra a un mes para anotar ventas y gastos</p>
+              <h2>Movimientos de <span id="months-year">2026</span></h2>
+              <p>Toca un mes para anotar ventas, costos y gastos.</p>
             </div>
           </div>
           <div class="month-grid" id="month-grid"></div>
         </section>
       </div>
 
-      <div id="panel-factura" hidden>
+      <div class="panel" id="panel-factura" hidden>
+        <div class="invoice-actions">
+          <button class="btn btn-sm btn-outline" type="button" id="btn-print-invoice">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg>
+            Imprimir
+          </button>
+        </div>
         <article class="card invoice" id="invoice"></article>
       </div>
     </section>
 
+    <!-- Vista de un mes -->
     <section id="view-month" hidden>
-      <button class="btn btn-ghost back-btn" type="button" id="btn-back">← Volver a los meses</button>
+      <div class="view-top">
+        <button class="btn btn-sm btn-ghost back-btn" type="button" id="btn-back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+          Volver a movimientos
+        </button>
+      </div>
       <div class="page-head">
-        <p class="kicker"><span></span> Mes</p>
-        <h1 id="month-title">Enero 2026</h1>
-        <p class="lede">Indica cuántas unidades se vendieron. El ingreso se calcula solo. Luego anotas costos y gastos de este mes.</p>
+        <div>
+          <p class="eyebrow">Pymes · Mes</p>
+          <div class="month-title-row">
+            <button class="btn btn-sm btn-icon" type="button" id="month-prev" aria-label="Mes anterior">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>
+            </button>
+            <h1 id="month-title">Enero 2026</h1>
+            <button class="btn btn-sm btn-icon" type="button" id="month-next" aria-label="Mes siguiente">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+            </button>
+          </div>
+          <p class="lede">Escribe cuántas unidades vendiste y lo que gastaste. Las cuentas se hacen solas.</p>
+        </div>
       </div>
 
       <div class="workspace">
         <div class="stack">
           <section class="card card-pad">
-            <div class="field">
-              <label for="month-notes">Notas del mes</label>
-              <textarea id="month-notes" placeholder="Temporada, pedidos grandes, recordatorios…"></textarea>
-            </div>
-          </section>
-          <section class="card card-pad">
             <div class="list-head">
               <div>
                 <h2>Ventas</h2>
-                <p class="faint">Cantidad vendida de cada producto</p>
+                <p>Unidades vendidas de cada producto.</p>
               </div>
-              <button class="btn" type="button" id="add-product-month">Añadir producto</button>
+              <button class="btn btn-sm btn-outline" type="button" id="add-product-month">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Producto
+              </button>
             </div>
-            <p class="faint contrib-hint" id="sales-hint"></p>
+            <p class="section-hint" id="sales-hint"></p>
             <div class="rows" id="sales-rows"></div>
             <div class="list-total">
-              <span class="muted">Total ventas</span>
+              <span>Total de ventas</span>
               <strong id="income-total">$0</strong>
             </div>
           </section>
+
           <section class="card card-pad">
             <div class="list-head">
               <div>
                 <h2>Costos directos</h2>
-                <p class="faint">Materia prima, mercancía, lo que cuesta producir o comprar lo que vendes.</p>
+                <p>Lo que cuesta hacer o comprar lo que vendes: insumos, mercancía, empaques.</p>
               </div>
-              <button class="btn" type="button" id="add-cost">Añadir costo</button>
+              <button class="btn btn-sm btn-outline" type="button" id="add-cost">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Agregar
+              </button>
             </div>
             <div class="rows" id="cost-rows"></div>
             <div class="list-total">
-              <span class="muted">Total costos</span>
+              <span>Total de costos</span>
               <strong id="cost-total">$0</strong>
             </div>
           </section>
+
           <section class="card card-pad">
             <div class="list-head">
               <div>
                 <h2>Gastos del negocio</h2>
-                <p class="faint">Arriendo, nómina, servicios. Marca si es fijo o variable.</p>
+                <p>Arriendo, nómina, servicios. Fijo: se paga igual cada mes. Variable: cambia con las ventas.</p>
               </div>
-              <button class="btn" type="button" id="add-expense">Añadir gasto</button>
+              <button class="btn btn-sm btn-outline" type="button" id="add-expense">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Agregar
+              </button>
             </div>
             <div class="rows" id="expense-rows"></div>
             <div class="list-total">
-              <span class="muted">Total gastos</span>
+              <span>Total de gastos</span>
               <strong id="expense-total">$0</strong>
             </div>
           </section>
+
+          <section class="card card-pad">
+            <div class="list-head">
+              <div>
+                <h2><label for="month-notes">Notas</label></h2>
+                <p>Temporada, pedidos grandes o recordatorios de este mes.</p>
+              </div>
+            </div>
+            <div class="field">
+              <textarea id="month-notes" placeholder="Temporada, pedidos grandes, recordatorios…"></textarea>
+            </div>
+          </section>
         </div>
-        <aside class="stack">
+
+        <aside class="stack month-aside">
           <div class="metrics" id="month-metrics"></div>
           <article class="card card-pad">
-            <h2>En qué se va el dinero</h2>
-            <div class="chart-wrap">
-              <svg id="month-donut" aria-label="Costos y gastos del mes"></svg>
+            <div class="list-head">
+              <div>
+                <h2>En qué se va el dinero</h2>
+                <p>Costos y gastos de este mes.</p>
+              </div>
             </div>
+            <div class="chart" id="month-donut"></div>
           </article>
         </aside>
       </div>

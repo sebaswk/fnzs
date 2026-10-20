@@ -1,0 +1,39 @@
+.panel {
+  display: grid;
+  gap: var(--gap);
+}
+
+.gmf-facts h2 {
+  font-size: 1.05rem;
+}
+
+.gmf-facts ul {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gmf-facts li {
+  position: relative;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.gmf-facts li::before {
+  content: "";
+  position: absolute;
+  top: 0.62em;
+  left: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.calc-results .table-scroll table {
+  min-width: 520px;
+}

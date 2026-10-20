@@ -2,13 +2,13 @@
   const FEATURE = "inversiones";
   const PRESETS = {
     USD: [
-      { id: "us", label: "Estados Unidos 2,5%", value: 2.5, hint: "Referencia CPI de largo plazo, no un dato en vivo." },
-      { id: "eu", label: "Eurozona 2,0%", value: 2, hint: "Referencia HICP de largo plazo, no un dato en vivo." },
-      { id: "custom", label: "Personalizada", value: null, hint: "Escribe la inflación anual que quieras usar." }
+      { id: "us", label: "EE. UU. 2,5%", value: 2.5, hint: "Promedio de largo plazo en Estados Unidos. No es un dato en vivo." },
+      { id: "eu", label: "Eurozona 2,0%", value: 2, hint: "Promedio de largo plazo en la Eurozona. No es un dato en vivo." },
+      { id: "custom", label: "Otra", value: null, hint: "Escribe la inflación anual que quieras usar." }
     ],
     COP: [
-      { id: "co", label: "Colombia 5,5%", value: 5.5, hint: "Referencia IPC de largo plazo, no un dato en vivo." },
-      { id: "custom", label: "Personalizada", value: null, hint: "Escribe la inflación anual que quieras usar." }
+      { id: "co", label: "Colombia 5,5%", value: 5.5, hint: "Promedio de largo plazo en Colombia. No es un dato en vivo." },
+      { id: "custom", label: "Otra", value: null, hint: "Escribe la inflación anual que quieras usar." }
     ]
   };
 
@@ -146,15 +146,9 @@
     return points.filter((point) => point.month > 0 && point.month % 12 === 0);
   }
 
-  function sample(points) {
-    if (points.length <= 120) return points;
-    const step = Math.ceil(points.length / 120);
-    return points.filter((point, index) => index % step === 0 || index === points.length - 1);
-  }
-
-  function metric(label, value, sub, extraClass) {
+  function metric(label, value, sub, extraClass, hero) {
     const article = document.createElement("article");
-    article.className = "metric";
+    article.className = `metric${hero ? " is-hero" : ""}`;
     const k = document.createElement("div");
     k.className = "label";
     k.textContent = label;
@@ -176,58 +170,50 @@
     const data = current();
     const points = project(data);
     const last = points.at(-1);
-    const months = Math.max(1, points.length - 1);
     const money = (value) => Norte.formatMoney(value, currency);
+    const compact = (value) => `${value < 0 ? "−" : ""}$${Norte.formatCompact(Math.abs(value), currency)}`;
     const nominalEffective = (1 + (data.rate || 0) / 100 / 12) ** 12 - 1;
     const realAnnual = ((1 + nominalEffective) / (1 + (data.inflation || 0) / 100) - 1) * 100;
+    const years = Math.max(1, Math.round(data.years));
     document.getElementById("chart-caption").textContent =
-      `Tasa real aproximada ${Norte.formatPct(realAnnual)} anual · valor de la cuenta frente al poder adquisitivo`;
+      `Lo que aportas y lo que ganas en intereses, año por año. Descontando la inflación, tu dinero crece cerca de ${Norte.formatPct(realAnnual)} al año.`;
 
     metrics.replaceChildren(
-      metric("Valor futuro", money(last.nominal), `En dinero de hoy: ${money(last.real)} · ${data.years} años`),
-      metric("Poder adquisitivo", money(last.real), `Inflación ${Norte.formatPct(data.inflation)} anual`),
       metric(
-        "Intereses ganados",
-        money(last.interest),
-        `Promedio mensual ${money(last.interest / months)} · aportado ${money(last.contributed)}`
+        `Tendrás en ${years} ${years === 1 ? "año" : "años"}`,
+        money(last.nominal),
+        `Aportaste ${money(last.contributed)} y ganaste ${money(last.interest)} en intereses.`,
+        "",
+        true
       ),
-      metric(
-        "Ganancia del último mes",
-        money(last.monthInterest),
-        `Con inflación: ${money(Math.max(last.realMonthInterest, 0))} en dinero de hoy`
-      )
+      metric("En dinero de hoy", money(last.real), `Lo que podrías comprar con ese dinero, con inflación de ${Norte.formatPct(data.inflation)} al año.`),
+      metric("Intereses ganados", money(last.interest), `Unos ${money(last.interest / (years * 12))} al mes en promedio.`, "positive"),
+      metric("Ganancia del último mes", money(last.monthInterest), `En dinero de hoy: ${money(Math.max(last.realMonthInterest, 0))}.`)
     );
 
-    const sampled = sample(points);
-    NorteCharts.lineChart(chart, [
-      {
-        name: "Valor",
-        color: "#d4c4a0",
-        points: sampled.map((point) => ({ x: point.year, y: point.nominal }))
-      },
-      {
-        name: "Real",
-        color: "#9cbaa4",
-        points: sampled.map((point) => ({ x: point.year, y: point.real }))
-      },
-      {
-        name: "Aportado",
-        color: "#6f6960",
-        dashed: true,
-        width: 1.6,
-        points: sampled.map((point) => ({ x: point.year, y: point.contributed }))
-      }
-    ], {
-      formatY: (value) => Norte.formatCompact(value, currency),
-      formatX: (value) => {
-        const years = Math.round(value);
-        if (years === 0) return "Inicio";
-        return `${years} ${years === 1 ? "Año" : "Años"}`;
-      }
+    const rows = yearlyRows(points);
+    NorteCharts.columns(chart, {
+      labels: rows.map((_, index) => `Año ${index + 1}`),
+      series: [
+        { name: "Lo que aportaste", color: "#6c9eff", values: rows.map((row) => row.contributed), stack: "valor" },
+        { name: "Intereses ganados", color: "#3fd49a", values: rows.map((row) => Math.max(0, row.interest)), stack: "valor" }
+      ],
+      lines: [
+        { name: "En dinero de hoy", color: "#f3b65b", values: rows.map((row) => row.real), dashed: true }
+      ],
+      format: money,
+      formatAxis: compact,
+      title: "Crecimiento del dinero por año",
+      tipRows: (i) => [
+        { name: "Lo que aportaste", color: "#6c9eff", value: money(rows[i].contributed) },
+        { name: "Intereses ganados", color: "#3fd49a", value: money(rows[i].interest) },
+        { name: "Valor total", value: money(rows[i].nominal), total: true },
+        { name: "En dinero de hoy", color: "#f3b65b", value: money(rows[i].real) }
+      ]
     });
 
     yearBody.replaceChildren();
-    yearlyRows(points).forEach((row, index) => {
+    rows.forEach((row, index) => {
       const tr = document.createElement("tr");
       const cells = [
         `Año ${index + 1}`,

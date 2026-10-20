@@ -3,306 +3,508 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#08090b">
-  <meta name="description" content="Flujo personal: patrimonio, bancos, meses, ahorros, inversiones y factura del año.">
+  <meta name="theme-color" content="#0a0b0d">
+  <meta name="description" content="Flujo personal: lo que tienes, lo que entra y sale cada mes, ahorros, inversiones y una hoja de cálculo para planear.">
   <title>Flujo personal — Norte</title>
   <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../assets/css/base.css">
   <link rel="stylesheet" href="finanzas.css">
+  <link rel="stylesheet" href="hoja.css">
 </head>
 <body>
   <a class="skip" href="#contenido">Saltar al contenido</a>
   <header class="topbar">
-    <a class="brand" href="../../index.html">
-      <svg viewBox="0 0 32 32" aria-hidden="true">
-        <path d="M16 5.5v21" stroke="#d4c4a0" stroke-width="1.4" stroke-linecap="round"/>
-        <path d="M16 5.5 11.2 13.2h9.6L16 5.5Z" fill="#d4c4a0"/>
-        <circle cx="16" cy="16.8" r="2.1" stroke="#9cbaa4" stroke-width="1.2"/>
-      </svg>
-      Norte
-    </a>
-    <nav class="nav" aria-label="Secciones">
-      <a href="../../index.html">Inicio</a>
-      <a href="./index.html" class="is-active">Flujo personal</a>
-      <a href="../inversiones/index.html">Inversiones</a>
-      <a href="../creditos/index.html">Créditos</a>
-      <a href="../pymes/index.html">Pymes</a>
-    </nav>
-    <div class="topbar-actions">
-      <button class="btn btn-ghost" type="button" id="btn-cargar">Cargar datos</button>
-      <button class="btn btn-primary" type="button" id="btn-guardar">Guardar datos</button>
-      <input class="hidden-file" id="file-input" type="file" accept="application/json,.json">
+    <div class="topbar-inner">
+      <a class="brand" href="../../index.html" aria-label="Norte, inicio">
+        <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2.8 6.6 14.2h10.8L12 2.8Z" fill="#3fd49a"/><path d="M12 14.2v6.6" stroke="#74e6b9" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+        <span class="brand-name">Norte</span>
+      </a>
+      <nav class="nav" aria-label="Secciones">
+        <a class="nav-link" href="../../index.html">Inicio</a>
+        <a class="nav-link is-active" href="./index.html" aria-current="page">Flujo personal</a>
+        <div class="nav-group">
+          <button class="nav-link nav-trigger" type="button" aria-expanded="false" aria-haspopup="true">
+            Calculadoras
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+          </button>
+          <div class="nav-menu">
+            <a class="nav-item" href="../interes-compuesto/index.html">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span>
+              <span><strong>Interés compuesto</strong><small>Cuánto puede crecer tu dinero</small></span>
+            </a>
+            <a class="nav-item" href="../creditos/index.html">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18"/><path d="M7 15h4"/></svg></span>
+              <span><strong>Créditos</strong><small>Cuota, intereses y abonos a capital</small></span>
+            </a>
+            <a class="nav-item" href="../4x1000/index.html">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></svg></span>
+              <span><strong>4x1000</strong><small>Lo que te cobra el banco al mover dinero</small></span>
+            </a>
+          </div>
+        </div>
+        <a class="nav-link" href="../pymes/index.html" data-feature="pymes" hidden>Pymes</a>
+      </nav>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost btn-sm" type="button" id="btn-cargar" title="Cargar datos guardados">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>
+          <span>Cargar<span class="hide-sm"> datos</span></span>
+        </button>
+        <button class="btn btn-primary btn-sm" type="button" id="btn-guardar" title="Descargar un archivo con tus datos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+          <span>Guardar<span class="hide-sm"> datos</span></span>
+        </button>
+        <input class="hidden-file" id="file-input" type="file" accept="application/json,.json">
+      </div>
+      <button class="nav-toggle" type="button" aria-label="Abrir menú" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
     </div>
   </header>
 
   <main id="contenido" class="page">
+    <!-- Vista general del año -->
     <section id="view-overview">
       <div class="page-head">
-        <p class="kicker"><span></span> 01 · Caja del año</p>
-        <h1>Flujo personal</h1>
-        <p class="lede">Patrimonio y saldos iniciales no cuentan como ingreso del mes. El flujo mensual registra lo que entra y sale; ahorros e inversiones se acumulan entre años.</p>
+        <div>
+          <p class="eyebrow">Tu dinero</p>
+          <h1>Flujo personal</h1>
+          <p class="lede">Organiza tu dinero del año: lo que tienes, lo que entra y sale cada mes, y cómo crecen tus ahorros e inversiones.</p>
+        </div>
       </div>
 
-      <div class="year-bar card card-pad">
-        <div class="identity-row">
+      <section class="card toolbar-card" aria-label="Tus datos y filtros">
+        <div class="toolbar-identity">
           <div class="field">
             <label for="nombre">Nombre o apodo</label>
-            <input id="nombre" type="text" placeholder="Opcional" autocomplete="name">
+            <input id="nombre" type="text" placeholder="Opcional" autocomplete="nickname">
           </div>
-          <div class="field usd-rate-field" title="Convierte las inversiones en bolsa (dólares) a pesos en el consolidado">
+          <div class="field" title="Sirve para ver en pesos lo que tienes en dólares">
             <label for="usd-rate">Valor del dólar</label>
-            <input id="usd-rate" type="number" min="0" step="0.01" placeholder="Ej. 4200" inputmode="decimal">
+            <div class="input-suffix">
+              <input id="usd-rate" type="number" min="0" step="0.01" placeholder="Ej. 4.200" inputmode="decimal">
+              <em>COP</em>
+            </div>
           </div>
-          <button class="btn btn-ghost" type="button" id="btn-ejemplo">Cargar ejemplo</button>
+          <button class="btn btn-outline toolbar-example" type="button" id="btn-ejemplo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>
+            Cargar ejemplo
+          </button>
         </div>
-        <div class="context-row">
-          <div class="context-block context-stack">
+        <div class="toolbar-context">
+          <div class="context-block">
             <div class="context-title">
               <span class="context-label">Año</span>
             </div>
             <div class="context-items">
               <div class="year-nav">
-                <button class="btn" type="button" id="year-prev" aria-label="Año anterior">‹</button>
+                <button class="btn btn-sm btn-icon" type="button" id="year-prev" aria-label="Año anterior">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>
+                </button>
                 <strong id="year-label">2026</strong>
-                <button class="btn" type="button" id="year-next" aria-label="Año siguiente">›</button>
+                <button class="btn btn-sm btn-icon" type="button" id="year-next" aria-label="Año siguiente">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+                </button>
               </div>
-              <div class="year-chips" id="year-chips"></div>
+              <div class="chip-row" id="year-chips"></div>
             </div>
           </div>
-          <div class="context-block context-stack">
+          <div class="context-block">
             <div class="context-title">
               <span class="context-label">Banco</span>
-              <button class="btn" type="button" id="btn-manage-banks" aria-label="Agregar banco">+</button>
+              <button class="context-add" type="button" id="btn-manage-banks" aria-label="Agregar banco" title="Agregar banco">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              </button>
             </div>
             <div class="context-items">
-              <div class="year-chips" id="bank-chips" aria-label="Filtro por banco"></div>
+              <div class="chip-row" id="bank-chips" aria-label="Filtrar por banco"></div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
+
+      <section class="card card-pad onboarding" id="onboarding" hidden>
+        <div class="list-head">
+          <div>
+            <h2>Empieza en 3 pasos</h2>
+            <p>O usa «Cargar ejemplo» para ver cómo funciona con datos de muestra.</p>
+          </div>
+        </div>
+        <ol class="steps">
+          <li>
+            <span class="step-num">1</span>
+            <div>
+              <strong>Agrega tus bancos</strong>
+              <p>Donde tienes cuentas, ahorros o inversiones.</p>
+            </div>
+            <button class="btn btn-sm btn-outline" type="button" data-go="banks">Agregar banco</button>
+          </li>
+          <li>
+            <span class="step-num">2</span>
+            <div>
+              <strong>Registra lo que ya tienes</strong>
+              <p>El saldo de cada cuenta al empezar.</p>
+            </div>
+            <button class="btn btn-sm btn-outline" type="button" data-go="patrimonio">Ir a Patrimonio</button>
+          </li>
+          <li>
+            <span class="step-num">3</span>
+            <div>
+              <strong>Anota cada mes</strong>
+              <p>Ingresos, gastos, deudas, ahorros e inversiones.</p>
+            </div>
+            <button class="btn btn-sm btn-outline" type="button" data-go="meses">Ir a Movimientos</button>
+          </li>
+        </ol>
+      </section>
 
       <div class="overview-tabbar">
-        <div class="tabs overview-tabs" role="tablist" aria-label="Vistas del año">
-          <button type="button" role="tab" data-tab="recopilado" class="is-active">Recopilado</button>
-          <button type="button" role="tab" data-tab="meses">Meses</button>
-          <button type="button" role="tab" data-tab="patrimonio">Patrimonio</button>
-          <button type="button" role="tab" data-tab="factura">Factura</button>
+        <div class="tabs" role="tablist" aria-label="Secciones del año">
+          <button type="button" role="tab" data-tab="recopilado" class="is-active" aria-selected="true">Resumen</button>
+          <button type="button" role="tab" data-tab="meses" aria-selected="false">Movimientos</button>
+          <button type="button" role="tab" data-tab="patrimonio" aria-selected="false">Patrimonio</button>
+          <button type="button" role="tab" data-tab="factura" aria-selected="false">Factura</button>
         </div>
-        <div class="tabs" role="tablist" aria-label="Tesorería">
-          <button type="button" role="tab" data-tab="tesoreria" id="btn-tesoreria">Tesorería</button>
+        <div class="tabs" role="tablist" aria-label="Herramientas">
+          <button type="button" role="tab" data-tab="tesoreria" id="btn-tesoreria" aria-selected="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M3.5 15h17M9.5 4v16"/></svg>
+            Tesorería
+          </button>
         </div>
       </div>
+      <p class="tab-desc" id="tab-desc">Tu año de un vistazo: totales, deudas, ahorros e inversiones.</p>
 
-      <div id="panel-recopilado">
-        <div class="metrics" id="year-metrics"></div>
-        <div class="chart-toggle-row">
-          <button class="btn btn-ghost" type="button" id="toggle-flow-charts">Ver gráficas</button>
+      <div class="panel" id="panel-recopilado">
+        <div class="metrics cols-4" id="year-metrics"></div>
+
+        <div class="flow-toggle">
+          <button class="btn btn-sm btn-outline" type="button" id="toggle-flow-charts" aria-controls="overview-charts" aria-expanded="false" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+            <span>Ver gráficas</span>
+          </button>
         </div>
         <div class="overview-grid" id="overview-charts" hidden>
           <article class="card card-pad">
             <div class="list-head">
               <div>
                 <h2>Mes a mes</h2>
-                <p class="faint">Ingresos, gastos, ahorros e inversiones de cada mes</p>
+                <p>Lo que entró y lo que salió cada mes, y lo que te quedó.</p>
               </div>
             </div>
-            <div class="chart-wrap pulse-wrap">
-              <svg id="year-chart" aria-label="Gráfica anual de flujo"></svg>
-            </div>
-            <div class="legend">
-              <span><i style="background:#9cbaa4"></i>Ingresos</span>
-              <span><i style="background:#c98970"></i>Egresos</span>
-              <span><i style="background:#d4c4a0"></i>Ahorros</span>
-              <span><i style="background:#8aa4c4"></i>Inversiones</span>
-            </div>
+            <div class="chart" id="year-chart"></div>
           </article>
           <article class="card card-pad">
-            <h2>En qué se fue el dinero</h2>
-            <div class="chart-wrap">
-              <svg id="year-donut" aria-label="Egresos por categoría"></svg>
+            <div class="list-head">
+              <div>
+                <h2>En qué se fue el dinero</h2>
+                <p>Tus gastos y aportes del año.</p>
+              </div>
             </div>
+            <div class="chart" id="year-donut"></div>
           </article>
         </div>
 
-        <section class="card card-pad savings-panel">
+        <section class="card card-pad">
+          <div class="list-head">
+            <div>
+              <h2>Deudas</h2>
+              <p>Tarjetas y créditos. Anota los pagos de cada mes y verás cuánto te falta.</p>
+            </div>
+            <div class="head-actions">
+              <button class="btn btn-sm btn-ghost" type="button" id="toggle-debts-layout">Vista completa</button>
+              <button class="btn btn-sm btn-primary" type="button" id="add-debt">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Nueva deuda
+              </button>
+            </div>
+          </div>
+          <div class="item-list" id="debts-list"></div>
+          <div class="list-total" id="debts-total" hidden></div>
+        </section>
+
+        <section class="card card-pad">
           <div class="list-head">
             <div>
               <h2>Ahorros</h2>
-              <p class="faint">Saldo inicial + aportes − retiros, con concepto. Se arrastran al año siguiente.</p>
+              <p>Dinero que guardas para una meta. Pasa de un año al siguiente.</p>
             </div>
             <div class="head-actions">
-              <button class="btn btn-ghost" type="button" id="toggle-savings-layout">Vista completa</button>
-              <button class="btn" type="button" id="add-saving">Nuevo ahorro</button>
+              <button class="btn btn-sm btn-ghost" type="button" id="toggle-savings-layout">Vista completa</button>
+              <button class="btn btn-sm btn-primary" type="button" id="add-saving">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Nuevo ahorro
+              </button>
             </div>
           </div>
-          <div class="savings-list" id="savings-list"></div>
+          <div class="item-list" id="savings-list"></div>
           <div class="list-total" id="savings-total" hidden></div>
         </section>
 
-        <section class="card card-pad savings-panel">
+        <section class="card card-pad">
           <div class="list-head">
             <div>
               <h2>Inversiones</h2>
-              <p class="faint">CDT, alta rentabilidad, bolsa o inversión manual. Entra a cada uno para el detalle.</p>
+              <p>CDT, cuentas de alta rentabilidad, bolsa y más. Abre cada una para ver el detalle.</p>
             </div>
             <div class="head-actions">
-              <button class="btn btn-ghost" type="button" id="toggle-invest-layout">Vista completa</button>
-              <button class="btn" type="button" id="add-invest">Nuevo producto</button>
+              <button class="btn btn-sm btn-ghost" type="button" id="toggle-invest-layout">Vista completa</button>
+              <button class="btn btn-sm btn-primary" type="button" id="add-invest">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Nueva inversión
+              </button>
             </div>
           </div>
-          <div class="savings-list" id="invest-list"></div>
+          <div class="item-list" id="invest-list"></div>
           <div id="invest-portfolio" hidden></div>
         </section>
       </div>
 
-      <div id="panel-meses" hidden>
-        <section class="months-panel">
+      <div class="panel" id="panel-meses" hidden>
+        <section class="card card-pad">
           <div class="list-head">
             <div>
-              <h2>Meses de <span id="months-year">2026</span></h2>
-              <p class="faint">Entra a un mes para anotar</p>
+              <h2>Movimientos de <span id="months-year">2026</span></h2>
+              <p>Toca un mes para anotar lo que entró y salió en el banco elegido.</p>
             </div>
           </div>
           <div class="month-grid" id="month-grid"></div>
         </section>
       </div>
 
-      <div id="panel-patrimonio" hidden>
-        <section class="card card-pad patrimonio-panel">
+      <div class="panel" id="panel-patrimonio" hidden>
+        <div class="metrics cols-4" id="patrimonio-metrics"></div>
+        <section class="card card-pad">
           <div class="list-head">
             <div>
-              <h2>Patrimonio bancario</h2>
-              <p class="faint">Registra lo que ya tienes en cada banco. Ese saldo inicial no aparece como ingreso del mes.</p>
+              <h2>Tus cuentas y bienes</h2>
+              <p>Registra lo que ya tenías al empezar. Ese saldo no se suma como ingreso del mes.</p>
             </div>
             <div class="head-actions">
-              <button class="btn" type="button" id="add-asset" hidden>Otro patrimonio</button>
-              <button class="btn" type="button" id="add-account">Nueva cuenta</button>
+              <button class="btn btn-sm btn-outline" type="button" id="add-asset" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Otro patrimonio
+              </button>
+              <button class="btn btn-sm btn-primary" type="button" id="add-account">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Nueva cuenta
+              </button>
             </div>
           </div>
-          <div class="metrics" id="patrimonio-metrics"></div>
-          <div class="patrimonio-divider" aria-hidden="true"></div>
-          <div class="savings-list" id="accounts-list"></div>
+          <div class="item-list" id="accounts-list"></div>
         </section>
       </div>
 
-      <div id="panel-factura" hidden>
+      <div class="panel" id="panel-factura" hidden>
+        <div class="invoice-actions">
+          <button class="btn btn-sm btn-outline" type="button" id="btn-print-invoice">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg>
+            Imprimir
+          </button>
+        </div>
         <article class="card invoice" id="invoice"></article>
       </div>
 
-      <div id="panel-tesoreria" hidden>
-        <div class="list-head">
-          <div>
-            <h2>Tesorería</h2>
-            <p class="faint">Para organizarse, estimar dinero y anotar lo que quieras recordar.</p>
-          </div>
-          <div class="head-actions">
-            <button class="btn" type="button" id="add-custom-table">Nueva tabla</button>
-            <button class="btn" type="button" id="add-note-table">Notas</button>
-          </div>
-        </div>
-        <div class="treasury-board" id="treasury-board"></div>
+      <div class="panel" id="panel-tesoreria" hidden>
+        <div id="treasury-sheet"></div>
       </div>
     </section>
 
+    <!-- Vista de un mes -->
     <section id="view-month" hidden>
-      <button class="btn btn-ghost back-btn" type="button" id="btn-back">← Volver a los meses</button>
+      <div class="view-top">
+        <button class="btn btn-sm btn-ghost back-btn" type="button" id="btn-back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+          Volver a movimientos
+        </button>
+      </div>
       <div class="page-head">
-        <p class="kicker"><span></span> Mes</p>
-        <div class="month-title-row">
-          <h1 id="month-title">Enero 2026</h1>
-          <button class="btn" type="button" id="btn-month-invoice">Factura del mes</button>
+        <div>
+          <p class="eyebrow">Flujo personal · Mes</p>
+          <div class="month-title-row">
+            <button class="btn btn-sm btn-icon" type="button" id="month-prev" aria-label="Mes anterior">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>
+            </button>
+            <h1 id="month-title">Enero 2026</h1>
+            <button class="btn btn-sm btn-icon" type="button" id="month-next" aria-label="Mes siguiente">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+            </button>
+          </div>
+          <p class="lede">Anota lo que entró y salió este mes en el banco elegido.</p>
         </div>
-        <p class="lede">Anota lo de este mes. Los aportes a ahorros e inversiones salen del flujo y se suman a cada fondo. Usa concepto al retirar o aportar.</p>
+        <div class="page-head-actions">
+          <button class="btn btn-sm btn-outline" type="button" id="btn-month-invoice">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>
+            Factura del mes
+          </button>
+        </div>
+      </div>
+
+      <div class="card month-bank-bar">
+        <span class="context-label">Banco</span>
+        <div class="chip-row" id="month-bank-chips" aria-label="Banco del mes"></div>
+      </div>
+      <div class="bank-required-note" id="month-bank-banner" hidden>
+        <h3>Elige un banco para anotar</h3>
+        <p>Cada mes se anota por banco. Con «Todos» ves la suma de tus bancos.</p>
       </div>
 
       <div class="workspace">
         <div class="stack">
           <section class="card card-pad">
-            <div class="field">
-              <label for="month-notes">Notas del mes</label>
-              <textarea id="month-notes" placeholder="Metas, deudas, recordatorios…"></textarea>
-            </div>
-          </section>
-          <section class="card card-pad">
             <div class="list-head">
-              <h2>Ingresos</h2>
-              <button class="btn" type="button" id="add-income">Añadir ingreso</button>
+              <div>
+                <h2>Ingresos</h2>
+                <p>Salario, ventas, pagos que recibiste.</p>
+              </div>
+              <button class="btn btn-sm btn-outline" type="button" id="add-income">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Agregar
+              </button>
             </div>
             <div class="rows" id="income-rows"></div>
             <div class="list-total">
-              <span class="muted">Total ingresos</span>
+              <span>Total de ingresos</span>
               <strong id="income-total">$0</strong>
             </div>
           </section>
+
           <section class="card card-pad">
             <div class="list-head">
-              <h2>Egresos</h2>
-              <button class="btn" type="button" id="add-expense">Añadir egreso</button>
+              <div>
+                <h2>Gastos</h2>
+                <p>Gastos del mes: arriendo, mercado, servicios…</p>
+              </div>
+              <button class="btn btn-sm btn-outline" type="button" id="add-expense">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Agregar
+              </button>
             </div>
             <div class="rows" id="expense-rows"></div>
             <div class="list-total">
-              <span class="muted">Total egresos</span>
+              <span>Total de gastos</span>
               <strong id="expense-total">$0</strong>
             </div>
           </section>
+
           <section class="card card-pad">
             <div class="list-head">
-              <h2>Movimientos de ahorros</h2>
-              <button class="btn" type="button" id="add-contrib">Añadir movimiento</button>
+              <div>
+                <h2>Deudas</h2>
+                <p>Pagos a tarjetas o créditos, o dinero nuevo que te prestaron.</p>
+              </div>
+              <button class="btn btn-sm btn-outline" type="button" id="add-debt-row">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Agregar
+              </button>
             </div>
-            <p class="faint contrib-hint" id="contrib-hint"></p>
+            <p class="section-hint" id="debt-hint"></p>
+            <div class="rows" id="debt-rows"></div>
+            <div class="list-total">
+              <span>Pagaste a deudas</span>
+              <strong id="debt-total">$0</strong>
+            </div>
+          </section>
+
+          <section class="card card-pad">
+            <div class="list-head">
+              <div>
+                <h2>Ahorros</h2>
+                <p>Lo que guardas en tus ahorros o sacas de ellos.</p>
+              </div>
+              <button class="btn btn-sm btn-outline" type="button" id="add-contrib">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Agregar
+              </button>
+            </div>
+            <p class="section-hint" id="contrib-hint"></p>
             <div class="rows" id="contrib-rows"></div>
             <div class="list-total">
-              <span class="muted">Neto ahorrado este mes</span>
+              <span>Ahorraste este mes</span>
               <strong id="contrib-total">$0</strong>
             </div>
           </section>
+
           <section class="card card-pad">
             <div class="list-head">
-              <h2>Aportes a inversiones</h2>
-              <button class="btn" type="button" id="add-placement">Añadir aporte</button>
+              <div>
+                <h2>Transferencias</h2>
+                <p>Dinero que pasas de un banco a otro.</p>
+              </div>
+              <button class="btn btn-sm btn-outline" type="button" id="add-transfer">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Agregar
+              </button>
             </div>
-            <p class="faint contrib-hint" id="invest-hint"></p>
-            <div class="rows" id="placement-rows"></div>
-            <div class="list-total">
-              <span class="muted">Total invertido este mes</span>
-              <strong id="placement-total">$0</strong>
-            </div>
-          </section>
-          <section class="card card-pad">
-            <div class="list-head">
-              <h2>Transferencias entre bancos</h2>
-              <button class="btn" type="button" id="add-transfer">Añadir transferencia</button>
-            </div>
-            <p class="faint contrib-hint">Mueve dinero de un banco a otro (por ejemplo, para fondear una inversión). Opcionalmente enlázala a un producto del banco destino.</p>
             <div class="rows" id="transfer-rows"></div>
             <div class="list-total">
-              <span class="muted">Neto transferido (este banco)</span>
+              <span>Neto en este banco</span>
               <strong id="transfer-total">$0</strong>
             </div>
           </section>
+
+          <section class="card card-pad">
+            <div class="list-head">
+              <div>
+                <h2>Inversiones</h2>
+                <p>Dinero que pones en tus inversiones de este banco.</p>
+              </div>
+              <button class="btn btn-sm btn-outline" type="button" id="add-placement">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Agregar
+              </button>
+            </div>
+            <p class="section-hint" id="invest-hint"></p>
+            <div class="rows" id="placement-rows"></div>
+            <div class="list-total">
+              <span>Invertiste este mes</span>
+              <strong id="placement-total">$0</strong>
+            </div>
+          </section>
+
+          <section class="card card-pad">
+            <div class="list-head">
+              <div>
+                <h2><label for="month-notes">Notas</label></h2>
+                <p>Recordatorios, metas o pendientes de este mes.</p>
+              </div>
+            </div>
+            <div class="field">
+              <textarea id="month-notes" placeholder="Metas, recordatorios, pendientes…"></textarea>
+            </div>
+          </section>
         </div>
-        <aside class="stack">
+
+        <aside class="stack month-aside">
           <div class="metrics" id="month-metrics"></div>
           <article class="card card-pad" id="month-flow-card">
-            <h2>En qué se fue el dinero</h2>
-            <div class="chart-wrap">
-              <svg id="month-donut" aria-label="Egresos del mes por categoría"></svg>
+            <div class="list-head">
+              <div>
+                <h2>En qué se fue el dinero</h2>
+                <p>Gastos y aportes de este mes.</p>
+              </div>
             </div>
+            <div class="chart" id="month-donut"></div>
           </article>
         </aside>
       </div>
     </section>
 
+    <!-- Vista de una inversión -->
     <section id="view-invest" hidden>
-      <button class="btn btn-ghost back-btn" type="button" id="btn-back-invest">← Volver al recopilado</button>
+      <div class="view-top">
+        <button class="btn btn-sm btn-ghost back-btn" type="button" id="btn-back-invest">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+          Volver al resumen
+        </button>
+      </div>
       <div class="page-head">
-        <p class="kicker"><span></span> Producto</p>
-        <h1 id="invest-title">Inversión</h1>
-        <p class="lede" id="invest-lede">Detalle del producto, capital ya invertido y proyección mes a mes.</p>
+        <div>
+          <p class="eyebrow">Flujo personal · Inversión</p>
+          <h1 id="invest-title">Inversión</h1>
+          <p class="lede" id="invest-lede"></p>
+        </div>
       </div>
       <div class="workspace invest-workspace">
         <div class="stack" id="invest-form"></div>
@@ -312,18 +514,16 @@
             <div class="list-head">
               <div>
                 <h2>Distribución</h2>
-                <p class="faint">Cómo se reparte el dinero disponible entre posiciones</p>
+                <p>Cómo se reparte lo que vale cada posición.</p>
               </div>
             </div>
-            <div class="chart-wrap">
-              <svg id="invest-donut" aria-label="Distribución de posiciones"></svg>
-            </div>
+            <div class="chart" id="invest-donut"></div>
           </article>
           <article class="card card-pad">
             <div class="list-head">
               <div>
                 <h2>Tabla mes a mes</h2>
-                <p class="faint" id="invest-table-hint">Invertido, comisión, disponible y rendimientos</p>
+                <p id="invest-table-hint"></p>
               </div>
             </div>
             <div class="table-wrap">
@@ -337,37 +537,72 @@
             <div class="list-head">
               <div>
                 <h2>Rendimiento por posición</h2>
-                <p class="faint">Ganancia o pérdida de cada posición. El largo de la barra es relativo a la que más rindió.</p>
+                <p>Cuánto ha ganado o perdido cada posición.</p>
               </div>
             </div>
-            <div class="chart-wrap bars-chart-wrap">
-              <svg id="invest-bars" aria-label="Rendimiento por posición"></svg>
-            </div>
+            <div class="chart" id="invest-bars"></div>
           </article>
         </aside>
       </div>
     </section>
   </main>
 
-  <dialog class="modal modal-wide" id="month-invoice-modal">
+  <dialog class="modal modal-wide" id="month-invoice-modal" aria-label="Factura del mes">
     <form method="dialog" class="modal-card">
-      <article class="invoice" id="month-invoice"></article>
+      <div class="modal-body">
+        <article class="invoice" id="month-invoice"></article>
+      </div>
       <div class="modal-actions">
         <button class="btn btn-primary" value="close">Cerrar</button>
       </div>
     </form>
   </dialog>
 
-  <dialog class="modal" id="banks-modal">
-    <form method="dialog" class="modal-card">
-      <div class="list-head">
+  <dialog class="modal" id="pot-modal" aria-labelledby="pot-modal-title">
+    <form method="dialog" class="modal-card" id="pot-form">
+      <div class="list-head modal-head">
         <div>
-          <h2>Bancos</h2>
-          <p class="faint">Asocia cuentas, ahorros e inversiones a un banco y filtra en la vista principal.</p>
+          <h2 id="pot-modal-title">Nuevo ahorro</h2>
+          <p id="pot-modal-desc"></p>
         </div>
-        <button class="btn" type="button" id="add-bank">Añadir banco</button>
       </div>
-      <div class="savings-list" id="banks-list"></div>
+      <div class="modal-body pot-modal-body">
+        <div class="field">
+          <label for="pot-name">Nombre</label>
+          <input class="input" id="pot-name" type="text" autocomplete="off">
+        </div>
+        <div class="field" id="pot-type-field" hidden>
+          <label>Tipo</label>
+          <div id="pot-type"></div>
+        </div>
+        <div class="field" id="pot-amount-field">
+          <label for="pot-amount" id="pot-amount-label">Lo que ya tienes</label>
+          <input class="input" id="pot-amount" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0">
+        </div>
+        <p class="faint pot-modal-note" id="pot-modal-note"></p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" id="pot-cancel">Cancelar</button>
+        <button class="btn btn-primary" type="submit" id="pot-create">Crear</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="modal" id="banks-modal" aria-labelledby="banks-title">
+    <form method="dialog" class="modal-card">
+      <div class="list-head modal-head">
+        <div>
+          <h2 id="banks-title">Tus bancos</h2>
+          <p>Donde tienes cuentas, ahorros o inversiones. Te sirven para filtrar y para anotar cada mes.</p>
+        </div>
+        <button class="btn btn-sm btn-outline" type="button" id="add-bank">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Agregar banco
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="item-list" id="banks-list"></div>
+      </div>
       <div class="modal-actions">
         <button class="btn btn-primary" value="close">Listo</button>
       </div>
@@ -376,6 +611,7 @@
 
   <script src="../../assets/js/norte.js"></script>
   <script src="../../assets/js/charts.js"></script>
+  <script src="hoja.js"></script>
   <script src="finanzas.js"></script>
 </body>
 </html>
