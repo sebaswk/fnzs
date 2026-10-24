@@ -2,7 +2,9 @@
   "use strict";
 
   const FEATURE = "tx";
-  const cloud = window.TxCloud || null;
+  const cloud = window.NorteCloud
+    ? window.NorteCloud.create({ table: "tx_data", sessionKey: "norte-tx-session", metaKey: "norte-tx-meta" })
+    : null;
   const STORE_KEY = "norte-tx";
   const CURRENCY = "COP";
   const MONTHS = [
@@ -1288,9 +1290,10 @@
 
   function setupAuth() {
     if (!cloud) return;
-    cloud.onStatus((state) => {
+    cloud.onStatus((state, detail) => {
       const el = $("sync-status");
-      el.textContent = STATUS_TEXT[state] || "";
+      const text = STATUS_TEXT[state] || "";
+      el.textContent = state === "error" && detail ? `${text}: ${detail}` : text;
       el.className = `tx-sync is-${state}`;
     });
 

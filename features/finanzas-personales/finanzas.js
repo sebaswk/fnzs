@@ -5621,15 +5621,24 @@
   const printBtn = document.getElementById("btn-print-invoice");
   if (printBtn) printBtn.addEventListener("click", () => window.print());
   document.getElementById("btn-back-invest").addEventListener("click", closeInvest);
-  document.getElementById("btn-ejemplo").addEventListener("click", loadExample);
+  // Con la sesión iniciada, reemplazar todo (ejemplo o archivo) pisaría lo guardado en la cuenta: se pide confirmar.
+  let replaceGuard = null;
+  function guardedApply(data) {
+    if (replaceGuard && !replaceGuard()) throw new Error("Carga cancelada. Tus datos no cambiaron.");
+    applySnapshot(data);
+  }
+  document.getElementById("btn-ejemplo").addEventListener("click", () => {
+    if (replaceGuard && !replaceGuard()) return;
+    loadExample();
+  });
   document.getElementById("btn-guardar").addEventListener("click", () => {
     Norte.downloadSnapshot(FEATURE, snapshot());
   });
-  Norte.bindFileInput(document.getElementById("file-input"), FEATURE, applySnapshot);
+  Norte.bindFileInput(document.getElementById("file-input"), FEATURE, guardedApply);
   document.getElementById("btn-cargar").addEventListener("click", () => {
     document.getElementById("file-input").click();
   });
-  Norte.enableDrop(document.body, FEATURE, applySnapshot);
+  Norte.enableDrop(document.body, FEATURE, guardedApply);
   window.addEventListener("hashchange", () => {
     const hash = readHash();
     const tab = readTabHash();
@@ -5663,4 +5672,13 @@
     getMonth(initial.year, initial.month, true);
   }
   render();
+
+  // Punto de enlace para el inicio de sesión opcional (nube.js). Sin él, la página funciona igual.
+  window.FinanzasApi = Object.freeze({
+    snapshot,
+    applySnapshot,
+    setReplaceGuard(fn) {
+      replaceGuard = typeof fn === "function" ? fn : null;
+    }
+  });
 })();
