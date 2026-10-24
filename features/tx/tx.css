@@ -1,0 +1,626 @@
+/* tx — registro rápido de ingresos y egresos */
+
+/* ---------- Registrar hoy ---------- */
+
+.tx-quick-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr);
+  gap: 14px;
+}
+
+.tx-quick-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+}
+
+.tx-quick-form.is-expense {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+}
+
+.tx-quick-form .btn {
+  white-space: nowrap;
+}
+
+.tx-today-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.tx-today-list .empty-note {
+  padding: 14px;
+}
+
+.tx-today-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+}
+
+.tx-today-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tx-today-item strong {
+  font-size: 14.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tx-today-item.is-income strong {
+  color: var(--positive);
+}
+
+.tx-today-item .icon-btn {
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+}
+
+/* ---------- Periodo y navegador de mes ---------- */
+
+.tx-period {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.tx-period-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.tx-monthnav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tx-monthlabel {
+  min-width: 150px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.tx-monthnav .btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.tx-invoice-bar {
+  justify-content: space-between;
+}
+
+/* ---------- Ingresos: todos los días del mes ---------- */
+
+.tx-today-pin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+
+.tx-today-pin[hidden] {
+  display: none;
+}
+
+.tx-today-pin .input {
+  width: min(100%, 220px);
+  margin-left: auto;
+}
+
+.tx-pin-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tx-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.tx-days {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+  gap: 8px;
+}
+
+.tx-day {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 6px 8px;
+  min-width: 0;
+  padding: 9px 10px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+}
+
+.tx-day:focus-within {
+  border-color: var(--accent-line);
+}
+
+.tx-day.is-weekend {
+  background: var(--surface-2);
+}
+
+.tx-day.is-today {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tx-day-n {
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.tx-day-w {
+  color: var(--faint);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: right;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tx-day.is-today .tx-day-w {
+  color: var(--accent-2);
+}
+
+.tx-day .input {
+  grid-column: 1 / -1;
+  height: 38px;
+  padding: 0 10px;
+  font-size: 14px;
+}
+
+/* ---------- Egresos y recurrentes: filas ---------- */
+
+.tx-expense {
+  grid-template-columns: 76px minmax(0, 1fr) minmax(130px, 170px) 44px;
+}
+
+.tx-rec.is-monthly {
+  grid-template-columns: 76px minmax(0, 1fr) minmax(130px, 170px) 44px;
+}
+
+.tx-rec.is-annual {
+  grid-template-columns: 76px minmax(130px, 170px) minmax(0, 1fr) minmax(130px, 170px) 44px;
+}
+
+.tx-concept {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tx-concept .input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tx-tag {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tx-expense.is-registered .tx-tag {
+  border-color: var(--accent-line);
+  color: var(--accent-2);
+}
+
+.tx-static {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: 14.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tx-static-day {
+  display: block;
+  height: 44px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  line-height: 42px;
+  text-align: center;
+}
+
+.tx-expense.is-planned .tx-static {
+  color: var(--muted);
+}
+
+.tx-expense.is-planned input::placeholder {
+  color: var(--faint);
+  opacity: 1;
+}
+
+.tx-expense.is-registered .tx-static-day {
+  border-style: solid;
+  color: var(--ink-2);
+}
+
+.tx-pending {
+  margin: 14px 0 0;
+}
+
+/* ---------- Móvil ---------- */
+
+@media (max-width: 860px) {
+  .tx-quick-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .tx-quick-form,
+  .tx-quick-form.is-expense {
+    grid-template-columns: 1fr;
+  }
+
+  .tx-quick-form .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .tx-period {
+    align-items: stretch;
+  }
+
+  .tx-monthnav {
+    width: 100%;
+  }
+
+  .tx-monthlabel {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tx-invoice-bar {
+    justify-content: flex-start;
+  }
+
+  .tx-days {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: 440px;
+    padding-right: 4px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .tx-today-pin .input {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  /* 16px evita que iOS haga zoom al enfocar un campo */
+  .tx-day .input {
+    height: 42px;
+    font-size: 16px;
+  }
+
+  .tx-concept {
+    flex-wrap: wrap;
+  }
+
+  .tx-concept .input,
+  .tx-concept .tx-static {
+    flex: 1 1 100%;
+  }
+
+  .tx-tag {
+    order: 2;
+  }
+
+  .tx-static-day {
+    height: 44px;
+  }
+
+  .tx-expense,
+  .tx-rec.is-monthly {
+    grid-template-columns: 76px minmax(0, 1fr) 44px;
+  }
+
+  .tx-expense > :nth-child(1),
+  .tx-rec.is-monthly > :nth-child(1) {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .tx-expense > :nth-child(2),
+  .tx-rec.is-monthly > :nth-child(2) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .tx-expense > :nth-child(4),
+  .tx-rec.is-monthly > :nth-child(4) {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .tx-expense > :nth-child(3),
+  .tx-rec.is-monthly > :nth-child(3) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .tx-rec.is-annual {
+    grid-template-columns: 76px minmax(0, 1fr) 44px;
+  }
+
+  .tx-rec.is-annual > :nth-child(1) {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .tx-rec.is-annual > :nth-child(2) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .tx-rec.is-annual > :nth-child(5) {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .tx-rec.is-annual > :nth-child(3) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .tx-rec.is-annual > :nth-child(4) {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  .tx-expense,
+  .tx-rec {
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--bg-elev);
+  }
+}
+
+@media print {
+  .tx-head,
+  .tx-period {
+    display: none !important;
+  }
+}
+
+/* ---------- Notas ---------- */
+
+.tx-notes {
+  min-height: 140px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.tx-notes-count {
+  margin: 8px 0 0;
+}
+
+.tx-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- Varios ingresos ---------- */
+
+.tx-sources {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.tx-source {
+  height: auto;
+  min-height: 34px;
+  gap: 8px;
+  padding: 5px 13px;
+}
+
+.tx-chip-amt {
+  color: var(--faint);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tx-source.is-active .tx-chip-amt {
+  color: var(--accent-2);
+}
+
+.tx-source-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.tx-source-edit[hidden],
+.tx-source-edit .icon-btn[hidden] {
+  display: none;
+}
+
+.tx-source-field {
+  grid-column: 1 / -1;
+}
+
+.tx-invoice-filter {
+  justify-content: flex-start;
+}
+
+.tx-filter-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+@media (max-width: 640px) {
+  .tx-source-edit {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .tx-source {
+    flex: 1 1 auto;
+    justify-content: space-between;
+  }
+
+  .tx-invoice-filter {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* ---------- Acceso y estado de la nube ---------- */
+
+.tx-gate-wrap {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+}
+
+.tx-gate-wrap[hidden] {
+  display: none;
+}
+
+.tx-gate-card {
+  width: min(100%, 420px);
+}
+
+.tx-gate-card h1 {
+  margin: 0 0 8px;
+  font-size: 1.6rem;
+}
+
+.tx-gate-msg {
+  min-height: 1.5em;
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.tx-gate-form {
+  display: grid;
+  gap: 14px;
+}
+
+.tx-gate-form .btn {
+  justify-content: center;
+  width: 100%;
+}
+
+.tx-account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+.tx-account-email {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tx-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.tx-sync:empty {
+  display: none;
+}
+
+.tx-sync::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.tx-sync.is-saved::before {
+  background: var(--accent);
+}
+
+.tx-sync.is-pending::before,
+.tx-sync.is-saving::before {
+  background: var(--amber);
+}
+
+.tx-sync.is-offline::before,
+.tx-sync.is-error::before,
+.tx-sync.is-auth::before {
+  background: var(--coral);
+}
+
+@media (max-width: 640px) {
+  .tx-account {
+    width: 100%;
+  }
+
+  .tx-account-email {
+    flex: 1 1 100%;
+  }
+}

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://jxhtypisigvwwkakdzlw.supabase.co; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a0b0d">
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <meta name="description" content="tx: ingresos y egresos del día, recurrentes y facturas.">
+  <title>tx — Norte</title>
+  <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../finanzas-personales/finanzas.css">
+  <link rel="stylesheet" href="tx.css">
+</head>
+<body data-autosave>
+  <a class="skip" href="#contenido">Saltar al contenido</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="../../index.html" aria-label="Norte, inicio">
+        <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2.8 6.6 14.2h10.8L12 2.8Z" fill="#3fd49a"/><path d="M12 14.2v6.6" stroke="#74e6b9" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+        <span class="brand-name">Norte</span>
+      </a>
+      <nav class="nav" aria-label="Secciones">
+        <a class="nav-link" href="../../index.html">Inicio</a>
+        <a class="nav-link" href="../finanzas-personales/index.html">Flujo personal</a>
+        <div class="nav-group">
+          <button class="nav-link nav-trigger" type="button" aria-expanded="false" aria-haspopup="true">
+            Calculadoras
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+          </button>
+          <div class="nav-menu">
+            <a class="nav-item" href="../interes-compuesto/index.html">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span>
+              <span><strong>Interés compuesto</strong><small>Cuánto puede crecer tu dinero</small></span>
+            </a>
+            <a class="nav-item" href="../creditos/index.html">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18"/><path d="M7 15h4"/></svg></span>
+              <span><strong>Créditos</strong><small>Cuota, intereses y abonos a capital</small></span>
+            </a>
+            <a class="nav-item" href="../4x1000/index.html">
+              <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/></svg></span>
+              <span><strong>4x1000</strong><small>Lo que te cobra el banco al mover dinero</small></span>
+            </a>
+          </div>
+        </div>
+        <a class="nav-link" href="../pymes/index.html" data-feature="pymes" hidden>Pymes</a>
+      </nav>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost btn-sm" type="button" id="btn-cargar" title="Cargar datos guardados">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>
+          <span>Cargar<span class="hide-sm"> datos</span></span>
+        </button>
+        <button class="btn btn-primary btn-sm" type="button" id="btn-guardar" title="Descargar un archivo con tus datos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+          <span>Guardar<span class="hide-sm"> datos</span></span>
+        </button>
+        <input class="hidden-file" id="file-input" type="file" accept="application/json,.json">
+      </div>
+      <button class="nav-toggle" type="button" aria-label="Abrir menú" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="page tx-gate-wrap" id="auth-gate">
+    <div class="card card-pad tx-gate-card">
+      <p class="eyebrow">tx</p>
+      <h1>Acceso privado</h1>
+      <p class="tx-gate-msg" id="auth-msg" role="status">Conectando…</p>
+      <form class="tx-gate-form" id="auth-form" hidden novalidate>
+        <div class="field">
+          <label for="auth-email">Correo</label>
+          <input class="input" id="auth-email" name="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+        </div>
+        <div class="field">
+          <label for="auth-password">Contraseña</label>
+          <input class="input" id="auth-password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <button class="btn btn-primary" type="submit" id="auth-submit">Entrar</button>
+      </form>
+    </div>
+  </div>
+
+  <main id="contenido" class="page tx" hidden>
+    <div class="page-head tx-head">
+      <div>
+        <p class="eyebrow" id="tx-eyebrow">tx</p>
+        <h1 id="tx-today">Hoy</h1>
+        <p class="lede" id="tx-lede">Anota el ingreso o el egreso de hoy y sigue con tu día.</p>
+      </div>
+      <div class="tx-account" id="tx-account">
+        <span class="tx-account-email" id="tx-account-email"></span>
+        <span class="tx-sync" id="sync-status" role="status"></span>
+        <button class="btn btn-sm btn-outline" type="button" id="btn-salir">Salir</button>
+      </div>
+    </div>
+
+    <div class="overview-tabbar">
+      <div class="tabs" role="tablist" aria-label="Secciones de tx">
+        <button type="button" role="tab" data-tab="resumen" class="is-active" aria-selected="true">Resumen</button>
+        <button type="button" role="tab" data-tab="movimientos" aria-selected="false">Movimientos</button>
+        <button type="button" role="tab" data-tab="recurrentes" aria-selected="false">Recurrentes</button>
+        <button type="button" role="tab" data-tab="facturas" aria-selected="false">Facturas</button>
+      </div>
+    </div>
+    <p class="tab-desc" id="tab-desc"></p>
+
+    <!-- Resumen -->
+    <div class="panel" id="panel-resumen">
+      <section class="card card-pad tx-quick" aria-labelledby="quick-title">
+        <div class="list-head">
+          <div>
+            <h2 id="quick-title">Registrar hoy</h2>
+            <p id="quick-date"></p>
+          </div>
+        </div>
+        <div class="tx-quick-grid">
+          <form class="tx-quick-form" id="quick-income-form" autocomplete="off">
+            <div class="field tx-source-field" id="quick-source-field" hidden>
+              <span class="field-label">¿De cuál ingreso?</span>
+              <div class="chip-row" id="quick-sources"></div>
+            </div>
+            <div class="field">
+              <label for="quick-income">Ingreso de hoy</label>
+              <input class="input" id="quick-income" type="number" inputmode="decimal" min="0" step="any" placeholder="0">
+            </div>
+            <button class="btn btn-primary" type="submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Agregar ingreso</button>
+          </form>
+          <form class="tx-quick-form is-expense" id="quick-expense-form" autocomplete="off">
+            <div class="field">
+              <label for="quick-concept">Egreso de hoy</label>
+              <input class="input" id="quick-concept" type="text" placeholder="Concepto (opcional)" maxlength="80">
+            </div>
+            <div class="field">
+              <label for="quick-amount">Valor</label>
+              <input class="input" id="quick-amount" type="number" inputmode="decimal" min="0" step="any" placeholder="0">
+            </div>
+            <button class="btn btn-primary" type="submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Agregar egreso</button>
+          </form>
+        </div>
+        <div class="tx-today-list" id="quick-today" aria-live="polite"></div>
+      </section>
+
+      <div class="tx-period">
+        <div class="tabs tx-scope" role="tablist" aria-label="Qué mostrar en el resumen">
+          <button type="button" role="tab" data-scope="mes" class="is-active" aria-selected="true" id="scope-mes">Este mes</button>
+          <button type="button" role="tab" data-scope="todo" aria-selected="false">Todo</button>
+        </div>
+        <p class="tx-period-note" id="scope-note"></p>
+      </div>
+
+      <div class="metrics cols-4" id="sum-metrics"></div>
+
+      <article class="card card-pad">
+        <div class="list-head">
+          <div>
+            <h2 id="sum-chart-title">Día a día</h2>
+            <p id="sum-chart-sub">Lo que entró y lo que salió cada día.</p>
+          </div>
+        </div>
+        <div class="chart" id="sum-chart"></div>
+      </article>
+    </div>
+
+    <!-- Movimientos -->
+    <div class="panel" id="panel-movimientos" hidden>
+      <div class="tx-period">
+        <div class="tx-monthnav" id="mv-nav">
+          <button class="btn btn-sm btn-icon" type="button" data-nav="prev" aria-label="Mes anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
+          <strong class="tx-monthlabel" data-nav="label" aria-live="polite">Octubre 2026</strong>
+          <button class="btn btn-sm btn-icon" type="button" data-nav="next" aria-label="Mes siguiente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+          <button class="btn btn-sm btn-ghost" type="button" data-nav="now">Hoy</button>
+        </div>
+      </div>
+      <div class="metrics cols-3" id="mv-metrics"></div>
+
+      <section class="card card-pad">
+        <div class="list-head">
+          <div>
+            <h2>Ingresos</h2>
+            <p>Todos los días del mes. Escribe lo que entró en cada uno. Si tienes varios ingresos, elige a cuál se lo anotas.</p>
+          </div>
+          <button class="btn btn-sm btn-outline" type="button" id="mv-add-source">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Otro ingreso
+          </button>
+        </div>
+        <div class="tx-sources">
+          <div class="chip-row" id="mv-sources"></div>
+          <div class="tx-source-edit">
+            <div class="field">
+              <label for="mv-source-name">Nombre de este ingreso</label>
+              <input class="input" id="mv-source-name" type="text" maxlength="40" autocomplete="off">
+            </div>
+            <button class="icon-btn" type="button" id="mv-source-remove" aria-label="Quitar este ingreso" title="Quitar este ingreso" hidden>×</button>
+          </div>
+        </div>
+        <div class="tx-today-pin" id="mv-pin" hidden></div>
+        <div class="tx-days" id="mv-days"></div>
+        <div class="list-total">
+          <span>Total de ingresos</span>
+          <strong id="mv-income-total">$0</strong>
+        </div>
+      </section>
+
+      <section class="card card-pad">
+        <div class="list-head">
+          <div>
+            <h2>Egresos</h2>
+            <p>Día, concepto y valor. Los recurrentes del mes aparecen con el valor en gris: escríbelo para registrarlo.</p>
+          </div>
+          <button class="btn btn-sm btn-outline" type="button" id="mv-add-expense">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Agregar
+          </button>
+        </div>
+        <div class="rows" id="mv-expense-rows"></div>
+        <div class="list-total">
+          <span>Total de egresos</span>
+          <strong id="mv-expense-total">$0</strong>
+        </div>
+        <p class="section-hint tx-pending" id="mv-pending"></p>
+      </section>
+    </div>
+
+    <!-- Recurrentes -->
+    <div class="panel" id="panel-recurrentes" hidden>
+      <section class="card card-pad">
+        <div class="list-head">
+          <div>
+            <h2>Gastos anuales fijos</h2>
+            <p>Se repiten una vez al año, en el día y el mes que elijas.</p>
+          </div>
+          <button class="btn btn-sm btn-outline" type="button" id="add-annual">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Agregar
+          </button>
+        </div>
+        <div class="rows" id="annual-rows"></div>
+        <div class="list-total">
+          <span>Total al año</span>
+          <strong id="annual-total">$0</strong>
+        </div>
+      </section>
+
+      <section class="card card-pad">
+        <div class="list-head">
+          <div>
+            <h2>Gastos mensuales</h2>
+            <p>Se repiten todos los meses, en el día que elijas.</p>
+          </div>
+          <button class="btn btn-sm btn-outline" type="button" id="add-monthly">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Agregar
+          </button>
+        </div>
+        <div class="rows" id="monthly-rows"></div>
+        <div class="list-total">
+          <span>Total al mes</span>
+          <strong id="monthly-total">$0</strong>
+        </div>
+        <p class="section-hint tx-pending" id="rec-hint"></p>
+      </section>
+      <section class="card card-pad">
+        <div class="list-head">
+          <div>
+            <h2>Notas</h2>
+            <p>Apuntes sobre tus gastos fijos: fechas de pago, números de contrato, recordatorios.</p>
+          </div>
+        </div>
+        <div class="field">
+          <label class="tx-sr" for="rec-notes">Notas de recurrentes</label>
+          <textarea class="input tx-notes" id="rec-notes" rows="5" maxlength="4000" placeholder="Escribe aquí lo que quieras recordar…"></textarea>
+        </div>
+        <p class="section-hint tx-notes-count" id="rec-notes-count"></p>
+      </section>
+    </div>
+
+    <!-- Facturas -->
+    <div class="panel" id="panel-facturas" hidden>
+      <div class="tx-period tx-invoice-bar invoice-actions">
+        <div class="tabs tx-scope" role="tablist" aria-label="Periodo de la factura">
+          <button type="button" role="tab" data-iscope="mes" class="is-active" aria-selected="true">Mes</button>
+          <button type="button" role="tab" data-iscope="anio" aria-selected="false">Año</button>
+        </div>
+        <div class="tx-monthnav" id="inv-nav">
+          <button class="btn btn-sm btn-icon" type="button" data-nav="prev" aria-label="Mes anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
+          <strong class="tx-monthlabel" data-nav="label" aria-live="polite">Octubre 2026</strong>
+          <button class="btn btn-sm btn-icon" type="button" data-nav="next" aria-label="Mes siguiente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
+          <button class="btn btn-sm btn-ghost" type="button" data-nav="now">Hoy</button>
+        </div>
+        <button class="btn btn-sm btn-outline" type="button" id="btn-print-invoice">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg>
+          Imprimir
+        </button>
+      </div>
+      <div class="tx-period tx-invoice-filter invoice-actions" id="inv-filter" hidden>
+        <span class="tx-filter-label">Ingresos</span>
+        <div class="chip-row" id="inv-sources"></div>
+      </div>
+      <article class="card invoice" id="invoice"></article>
+    </div>
+  </main>
+
+  <script src="../../assets/js/norte.js"></script>
+  <script src="../../assets/js/charts.js"></script>
+  <script src="cloud.js"></script>
+  <script src="tx.js"></script>
+</body>
+</html>

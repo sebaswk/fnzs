@@ -12,7 +12,8 @@
     "inversiones": "Interés compuesto",
     "creditos": "Créditos",
     "4x1000": "Calculadora de 4x1000",
-    "pymes": "Pymes"
+    "pymes": "Pymes",
+    "tx": "tx"
   };
 
   const FILE_NAMES = {
@@ -20,7 +21,8 @@
     "inversiones": "interes-compuesto",
     "creditos": "creditos",
     "4x1000": "4x1000",
-    "pymes": "pymes"
+    "pymes": "pymes",
+    "tx": "tx"
   };
 
   function onReady(fn) {
@@ -175,6 +177,7 @@
 
   function showSaveDisclaimer() {
     if (!document.getElementById("btn-guardar")) return;
+    if (document.body && document.body.hasAttribute("data-autosave")) return;
     try {
       if (sessionStorage.getItem("norte-disclaimer") === "1") return;
     } catch {
